@@ -14,7 +14,7 @@ setup(name='symmetric_play',
         packages=[package for package in find_packages()
                     if package.startswith('symmetric_play')],
         install_requires=[
-            'gym[atari,classic_control]==',
+            'gym[atari,classic_control]==0.15.3',
             'stable_baselines[mpi]==2.9.0',
             'matplotlib'],
         extras_require={
@@ -27,6 +27,3 @@ setup(name='symmetric_play',
         lisence='MIT',
         version='0.0.1',
         )
-        
-            
-
