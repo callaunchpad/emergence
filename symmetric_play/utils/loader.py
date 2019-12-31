@@ -45,6 +45,9 @@ class ModelParams(dict):
 
     @classmethod
     def load(cls, path):
+        if not 'params.json' in os.listdir(path):
+            raise ValueError("Params file not found in specified save directory.")
+        path = os.path.join(path, 'params.json')
         with open(path, 'r') as fp:
             data = json.load(fp)
         params = cls(data['env'], data['alg'])
@@ -56,11 +59,7 @@ def get_alg(params: ModelParams):
     try:
         alg = vars(symmetric_play)[alg_name]
     except:
-        pass
-    try:
         alg = vars(stable_baselines)[alg_name]
-    except:
-        raise ValueError("Invalid Algorithm In Parameters file.")
     return alg
 
 def get_env(params: ModelParams):
@@ -100,7 +99,7 @@ def get_policy(params: ModelParams):
         return policy
     
 def get_paths(params: ModelParams):
-    date_prefix = date.today().strftime('%d_%m_%y')
+    date_prefix = date.today().strftime('%m_%d_%y')
     date_dir = os.path.join(BASE, date_prefix)
     save_name = params.get_save_name()
     if os.path.isdir(date_dir):
@@ -120,7 +119,7 @@ def get_paths(params: ModelParams):
 def load_from_name(path, best=False, load_env=True):
     if not path.startswith('/'):
         path = os.path.join(BASE, path)
-    params = ModelParams.load(os.path.join(path, 'params.json'))
+    params = ModelParams.load(path)
     return load(path, params, best=best, load_env=load_env)
 
 def load(path: str, params : ModelParams, best=False, load_env=True):
@@ -137,7 +136,7 @@ def load(path: str, params : ModelParams, best=False, load_env=True):
         raise ValueError("Cannot find a model for name: " + path)
     # get model
     alg = get_alg(params)
-    model = alg.load(path)
+    model = alg.load(model_path)
     if load_env:
         env = get_env(params)
     else:

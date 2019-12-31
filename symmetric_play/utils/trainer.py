@@ -73,8 +73,8 @@ def train(params, model=None, env=None):
         n_actions = env.action_space.shape[-1]
         params['alg_args']['action_noise'] = OrnsteinUhlenbeckActionNoise(mean=np.zeros(n_actions), sigma=float(params['noise'])*np.ones(n_actions))
     
-    alg = get_alg(params)
     if model is None:
+        alg = get_alg(params)
         policy = get_policy(params)
         model = alg(policy,  env, verbose=1, tensorboard_log=tb_path, policy_kwargs=params['policy_args'], **params['alg_args'])
     else:
