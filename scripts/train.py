@@ -1,18 +1,7 @@
-import argparse
-from symmetric_play.utils.trainer import train
-from symmetric_play.utils.loader import ModelParams
+from symmetric_play.utils.parser import train_parser, args_to_params
 
-parser = argparse.ArgumentParser()
-
-parser.add_argument("--env", "-e", type=str)
-parser.add_argument("--alg", "-a", type=str)
-parser.add_argument("--timesteps", "-t", type=int)
-
+parser = train_parser()
 args = parser.parse_args()
-
-params = ModelParams(args.env, args.alg)
-
-if args.timesteps:
-    params['timesteps'] = args.timesteps
+params = args_to_params(args)
 
 train(params)
