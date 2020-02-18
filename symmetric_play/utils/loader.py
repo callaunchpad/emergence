@@ -4,8 +4,8 @@ import json
 from datetime import date
 import stable_baselines
 
-BASE = os.path.dirname(symmetric_play.__file__) + '/../output'
-LOGS = os.path.dirname(symmetric_play.__file__) + '/../tb_logs'
+BASE = os.path.dirname(os.path.dirname(symmetric_play.__file__)) + '/output'
+LOGS = os.path.dirname(os.path.dirname(symmetric_play.__file__)) + '/tb_logs'
 
 class ModelParams(dict):
 
@@ -32,12 +32,17 @@ class ModelParams(dict):
         self['name'] = None
         self['tensorboard'] = None
         self['num_proc'] = 1 # Default to single process
+        self['eval_freq'] = 100000
+        self['checkpoint_freq'] = None
 
     def get_save_name(self) -> str:
         if self['name']:
-            return self['name']
+            name =  self['name']
         else:
-            return self['env'] + '_' + self['alg']
+            name = self['env'] + '_' + self['alg']
+        if not self['seed'] is None:
+            name += '_s' + str(self['seed'])
+        return name
 
     def save(self, path : str):
         with open(os.path.join(path, 'params.json'), 'w') as fp:
@@ -45,9 +50,14 @@ class ModelParams(dict):
 
     @classmethod
     def load(cls, path):
-        if not 'params.json' in os.listdir(path):
+        if not path.startswith('/'):
+            path = os.path.join(BASE, path)
+        if os.path.isdir(path) and 'params.json' in os.listdir(path):
+            path = os.path.join(path, 'params.json')
+        elif os.path.exists(path):
+            pass
+        else:
             raise ValueError("Params file not found in specified save directory.")
-        path = os.path.join(path, 'params.json')
         with open(path, 'r') as fp:
             data = json.load(fp)
         params = cls(data['env'], data['alg'])
@@ -116,13 +126,13 @@ def get_paths(params: ModelParams):
     tb_path = os.path.join(LOGS, date_prefix, save_name) if params['tensorboard'] else None
     return save_path, tb_path
 
-def load_from_name(path, best=False, load_env=True):
+def load_from_name(path, best=True, load_env=True):
     if not path.startswith('/'):
         path = os.path.join(BASE, path)
     params = ModelParams.load(path)
     return load(path, params, best=best, load_env=load_env)
 
-def load(path: str, params : ModelParams, best=False, load_env=True):
+def load(path: str, params : ModelParams, best=True, load_env=True):
     if not path.startswith('/'):
         path = os.path.join(BASE, path)
     files = os.listdir(path)

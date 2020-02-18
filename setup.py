@@ -5,7 +5,6 @@ from setuptools import setup, find_packages
 Symmetric Play Setup Script
 
 Notes for later: see package_data arg if additional files need to be supplied.
-
 '''
 if sys.version_info.major != 3:
     print('Please use Python3!')
@@ -16,7 +15,9 @@ setup(name='symmetric_play',
         install_requires=[
             'gym[atari,classic_control]==0.15.3',
             'stable_baselines[mpi]==2.9.0',
-            'matplotlib'],
+            'numpy<1.17'
+            'matplotlib',
+            'seaborn'],
         extras_require={
             'cpu' : ['tensorflow==1.14.0'],
             'gpu' : ['tensorflow-gpu==1.14.0'],

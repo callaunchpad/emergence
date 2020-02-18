@@ -10,14 +10,14 @@ from symmetric_play.utils.loader import get_paths, get_env, get_alg, get_policy
 
 best_mean_reward, n_steps = -np.inf, 0
 
-def callback(_locals, _globals, data_dir, freq=None):
+def callback(_locals, _globals, data_dir, freq=None, checkpoint_freq=None):
     """
     Callback called at each step (for DQN an others) or after n steps (see ACER or PPO2)
     :param _locals: (dict)
     :param _globals: (dict)
     """
     if not freq:
-        freq = 10000
+        freq = 100000
     global n_steps, best_mean_reward
     # Print stats every freq calls
     if (n_steps + 1) % freq == 0:
@@ -34,11 +34,15 @@ def callback(_locals, _globals, data_dir, freq=None):
                 print("Saving new best model")
                 _locals['self'].save(data_dir + '/best_model')
         # TODO: Perhaps augment to save a video?
+
+    if not checkpoint_freq is None and (n_steps +1) % checkpoint_freq == 0:
+        name = "/checkpoint_" + str(n_steps + 1)
+        _locals['self'].save(data_dir + name)
     n_steps += 1
     return True
 
-def create_training_callback(data_dir, freq=None):
-    return lambda _locals, _globals: callback(_locals, _globals, data_dir, freq=freq)
+def create_training_callback(data_dir, freq=None, checkpoint_freq=None):
+    return lambda _locals, _globals: callback(_locals, _globals, data_dir, freq=freq, checkpoint_freq=checkpoint_freq)
 
 def train(params, model=None, env=None): 
     print("Training Parameters: ", params)
@@ -67,6 +71,7 @@ def train(params, model=None, env=None):
     if params['seed']:
         seed = params['seed'] + 100000 * rank
         set_global_seeds(seed)
+        params['alg_args']['seed'] = seed
 
     if 'noise' in params and params['noise']:
         from stable_baselines.ddpg import OrnsteinUhlenbeckActionNoise
@@ -80,13 +85,8 @@ def train(params, model=None, env=None):
     else:
         model.set_env(env)
 
-    callback_freq = {
-        'PPO2': int(1000 / params['num_proc']),
-        'SAC' : 10000,
-        'DSAC' : 10000
-    }[params['alg']]
-
-    model.learn(total_timesteps=params['timesteps'], log_interval=params['log_interval'], callback=create_training_callback(data_dir, freq=callback_freq))
+    model.learn(total_timesteps=params['timesteps'], log_interval=params['log_interval'], 
+                callback=create_training_callback(data_dir, freq=params['eval_freq'], checkpoint_freq=params['checkpoint_freq']))
     
     model.save(data_dir +'/final_model')
 
