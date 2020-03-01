@@ -15,8 +15,9 @@ setup(name='symmetric_play',
         install_requires=[
             'gym[atari,classic_control]==0.15.3',
             'stable_baselines[mpi]==2.9.0',
-            'numpy<1.17'
+            'numpy<1.17',
             'matplotlib',
+            'pygame',
             'seaborn'],
         extras_require={
             'cpu' : ['tensorflow==1.14.0'],
