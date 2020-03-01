@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import gym
 
-class SymmetricGame(ABC):
+class SymmetricGame(ABC, gym.Env):
 
     def __init__(self):
         pass
@@ -9,7 +9,8 @@ class SymmetricGame(ABC):
     @abstractmethod
     def step(self, actions):
         '''
-        Moves the player "player" in the game.
+        Moves all players in the game. actions should be a matrix of size (N, A, D)
+        N = batch, A = number of agents, D = dimension of action space.
         Returns:
             obs - observation from the perspective of player "player" after moving
             reward - reward the player "player" gets from his action.
@@ -25,8 +26,3 @@ class SymmetricGame(ABC):
     @abstractmethod
     def render(self, mode='human', close=False):
         return NotImplemented
-
-class SimultaneousGame(gym.Env):
-    '''
-    Must implement the gym interface.s
-    '''
