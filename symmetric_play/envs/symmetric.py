@@ -7,14 +7,7 @@ class SymmetricGame(ABC):
         pass
 
     @abstractmethod
-    def get_obs(self, player):
-        '''
-        Gets an observation from the perspective of player "player"
-        '''
-        return NotImplemented
-
-    @abstractmethod
-    def step(self, action, player):
+    def step(self, actions):
         '''
         Moves the player "player" in the game.
         Returns:
