@@ -58,15 +58,18 @@ def base_parser():
     return parser
 
 def train_parser():
-    parser = base_params_parser()
+    parser = base_parser()
     add_args_from_dict(parser, ENV_ARGS)
+    add_args_from_dict(parser, ENV_WRAPPER_ARGS)
     add_args_from_dict(parser, ALG_ARGS)
+    add_args_from_dict(parser, POLICY_ARGS)
+    return parser
 
 def args_to_params(args):
     params = ModelParams(args.env, args.alg)
     for arg_name, arg_value in vars(args).items():
         if not arg_value is None:
-            if arg_name in BASE_ARGS:
+            if arg_name in BASE_ARGS or arg_name == "env" or arg_name == "alg":
                 params[arg_name] = arg_value
             elif arg_name in ENV_ARGS:
                 params['env_args'][arg_name] = arg_value
@@ -78,4 +81,4 @@ def args_to_params(args):
                 params['policy_args'][arg_name] = arg.value
             else:
                 raise ValueError("Provided argument does not fit into categories")
-
+    return params
