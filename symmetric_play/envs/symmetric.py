@@ -9,11 +9,11 @@ class SymmetricGame(ABC):
     @abstractmethod
     def step(self, actions):
         '''
-        Moves the player "player" in the game.
+        Moves the players in the game according to list of "actions".
         Returns:
-            obs - observation from the perspective of player "player" after moving
-            reward - reward the player "player" gets from his action.
-            done - T/F boolean representing if the agent is still in the game.
+			state - state of the environment
+            reward - rewards the players gets from their actions.
+            done - T/F boolean representing if the agents are still in the game.
             info - a dict object containing other information about step.
         '''
         return NotImplemented
