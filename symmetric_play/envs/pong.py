@@ -29,7 +29,7 @@ class PongObject:
 	def __init__(self,pos,vel):
 		self.pos = pos
 		self.vel = vel
-	def accelerate(paddle, acceleration):
+	def accelerate(self, paddle, acceleration):
 		v = paddle.vel 
 		sign_a = np.sign(acceleration)
 		if np.sign(v) == sign_a:
@@ -50,13 +50,12 @@ class PongGame(Env):
 	def __init__(self):
 		self.viewer = None
 		self.paddle1, self.paddle2, self.reward = PongObject([HALF_PAD_WIDTH - 1,HEIGHT/2], 0), PongObject([WIDTH +1 - HALF_PAD_WIDTH,HEIGHT/2], 0), 0
-		self.canvas = pygame.Surface((WIDTH, HEIGHT))
-		self.screen = sarray.array3d(self.canvas)
+		self.canvas = None
+		self.screen = None
 		self.rng = np.random.RandomState()
 		self.action_space = spaces.Box(low=-2,high=2, shape=(2,))
 		self.observation_space = spaces.Box(low=0, high=255, shape=(WIDTH, HEIGHT, 3))
-	
-	
+
 	def _seed(self, seed=None):
 		self.rng.seed(seed)
 	def _reset(self):
@@ -76,29 +75,11 @@ class PongGame(Env):
 		self.paddle1.accelerate(action[0])
 		self.paddle2.accelerate(action[1])
 
-		self.canvas.fill(BLACK)
-		pygame.draw.line(self.canvas, WHITE, [WIDTH / 2, 0],[WIDTH / 2, HEIGHT], 1)
-		pygame.draw.line(self.canvas, WHITE, [PAD_WIDTH, 0],[PAD_WIDTH, HEIGHT], 1)
-		pygame.draw.line(self.canvas, WHITE, [WIDTH - PAD_WIDTH, 0],[WIDTH - PAD_WIDTH, HEIGHT], 1)
-		pygame.draw.circle(self.canvas, WHITE, [WIDTH//2, HEIGHT//2], 70, 1)
-
 		# update paddle's vertical position, keep paddle on the screen
 		self.paddle1.pos[1] =  min(max(HALF_PAD_HEIGHT,self.paddle1.vel+self.paddle1.pos[1]),HEIGHT-HALF_PAD_HEIGHT)
 		
 		self.paddle2.pos[1] =  min(max(HALF_PAD_HEIGHT,self.paddle2.vel+self.paddle2.pos[1]),HEIGHT-HALF_PAD_HEIGHT)
 		
-
-		#draw paddles and ball
-		pygame.draw.circle(self.canvas, RED, [*map(int,self.ball.pos)], BALL_RADIUS, 0)
-		pygame.draw.polygon(self.canvas, GREEN, [[self.paddle1.pos[0] - HALF_PAD_WIDTH, self.paddle1.pos[1] - HALF_PAD_HEIGHT], 
-												[self.paddle1.pos[0] - HALF_PAD_WIDTH, self.paddle1.pos[1] + HALF_PAD_HEIGHT], 
-												[self.paddle1.pos[0] + HALF_PAD_WIDTH, self.paddle1.pos[1] + HALF_PAD_HEIGHT], 
-												[self.paddle1.pos[0] + HALF_PAD_WIDTH, self.paddle1.pos[1] - HALF_PAD_HEIGHT]], 0)
-		pygame.draw.polygon(self.canvas, GREEN, [[self.paddle2.pos[0] - HALF_PAD_WIDTH, self.paddle2.pos[1] - HALF_PAD_HEIGHT], 
-												[self.paddle2.pos[0] - HALF_PAD_WIDTH, self.paddle2.pos[1] + HALF_PAD_HEIGHT], 
-												[self.paddle2.pos[0] + HALF_PAD_WIDTH, self.paddle2.pos[1] + HALF_PAD_HEIGHT], 
-												[self.paddle2.pos[0] + HALF_PAD_WIDTH, self.paddle2.pos[1] - HALF_PAD_HEIGHT]], 0)
-
 		#update ball
 		self.ball.pos[0] += int(self.ball.vel[0])
 		#ball collision check on top and bottom walls
@@ -123,10 +104,31 @@ class PongGame(Env):
 				self.ball.vel[1] *= 1.1
 			elif int(self.ball.pos[0]) >= WIDTH:
 				self.is_finished = True
-		self.screen = sarray.array3d(self.canvas)
-		return self.screen, self.reward, self.is_finished, None
+		# self.screen = sarray.array3d(self.canvas)
+		return np.array(self.ball, self.paddle1, self.paddle2), self.reward, self.is_finished, None
 		
 	def _render(self,mode='human',close=False):
+        self.canvas = pygame.Surface((WIDTH, HEIGHT))
+		self.screen = sarray.array3d(self.canvas)
+
+        #set up canvas
+        self.canvas.fill(BLACK)
+		pygame.draw.line(self.canvas, WHITE, [WIDTH / 2, 0],[WIDTH / 2, HEIGHT], 1)
+		pygame.draw.line(self.canvas, WHITE, [PAD_WIDTH, 0],[PAD_WIDTH, HEIGHT], 1)
+		pygame.draw.line(self.canvas, WHITE, [WIDTH - PAD_WIDTH, 0],[WIDTH - PAD_WIDTH, HEIGHT], 1)
+		pygame.draw.circle(self.canvas, WHITE, [WIDTH//2, HEIGHT//2], 70, 1)
+
+        #draw paddles and ball
+		pygame.draw.circle(self.canvas, RED, [*map(int,self.ball.pos)], BALL_RADIUS, 0)
+		pygame.draw.polygon(self.canvas, GREEN, [[self.paddle1.pos[0] - HALF_PAD_WIDTH, self.paddle1.pos[1] - HALF_PAD_HEIGHT], 
+												[self.paddle1.pos[0] - HALF_PAD_WIDTH, self.paddle1.pos[1] + HALF_PAD_HEIGHT], 
+												[self.paddle1.pos[0] + HALF_PAD_WIDTH, self.paddle1.pos[1] + HALF_PAD_HEIGHT], 
+												[self.paddle1.pos[0] + HALF_PAD_WIDTH, self.paddle1.pos[1] - HALF_PAD_HEIGHT]], 0)
+		pygame.draw.polygon(self.canvas, GREEN, [[self.paddle2.pos[0] - HALF_PAD_WIDTH, self.paddle2.pos[1] - HALF_PAD_HEIGHT], 
+												[self.paddle2.pos[0] - HALF_PAD_WIDTH, self.paddle2.pos[1] + HALF_PAD_HEIGHT], 
+												[self.paddle2.pos[0] + HALF_PAD_WIDTH, self.paddle2.pos[1] + HALF_PAD_HEIGHT], 
+												[self.paddle2.pos[0] + HALF_PAD_WIDTH, self.paddle2.pos[1] - HALF_PAD_HEIGHT]], 0)
+
 		if close:
 			if self.viewer is not None:
 				self.viewer.close()
