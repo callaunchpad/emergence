@@ -25,6 +25,31 @@ If using GPU:
 pip install -e .[gpu]
 ```
 
+## Training with Stable Baselines
+The script *scripts/train.py* can be used to train Stable Baseline algorithms in both gym and custom environments.
+```
+usage: train.py [-h] [--env ENV] [--alg ALG] [--timesteps TIMESTEPS]
+                [--policy POLICY] [--early-reset EARLY_RESET]
+                [--normalize NORMALIZE] [--time-limit TIME_LIMIT]
+                [--seed SEED] [--log-interval LOG_INTERVAL]
+                [--tensorboard TENSORBOARD] [--name NAME]
+                [--num-proc NUM_PROC] [--eval-freq EVAL_FREQ]
+                [--checkpoint-freq CHECKPOINT_FREQ]
+                [--layers LAYERS [LAYERS ...]]
+```
+Example: train PPO2 algorithm in CartPole-v1 environment for 25000 timesteps saving a checkpoint model every 100 training iterations.
+```
+python scripts/train.py --env CartPole-v1 --alg PPO2 --timesteps 25000 --checkpoint-freq 100
+```
+To view training progress in TensorBoard we can run...
+```
+python scripts/train.py --env CartPole-v1 --alg PPO2 --timesteps 25000 --checkpoint-freq 100 --tensorboard TENSORBOARD
+```
+In a separate terminal run... (REST_OF_PATH can be found in pre-logs before training starts)
+```
+tensorboard --logdir ./tb_logs/REST_OF_PATH
+```
+
 ## Contributors
 * Joey Hejna
 * *other team members go here*
