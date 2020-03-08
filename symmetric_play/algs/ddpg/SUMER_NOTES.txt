@@ -1,0 +1,8 @@
+Hey all, sorry I couldn't be there for this meeting. Here are some notes about this code:
+
+1. It is derived from MA-DDPG, a multi-agent variant of DDPG presented by OpenAI in one of their papers. It is basically what Joey mentioned (matrix of transitions / state composed of row-concatenated agent states).
+2. MA-DDPG is meant for mixed cooperative-competitive environments, unlike the purely competitive nature of our games. This is actually a feature for us, since we get "free" policies for handling "good" agents and adversarial agents (they solved an even more general problem). I removed a lot of the policies relating to friendly agents for simplicity, but may not have completely eradicated them yet.
+	-> IMPORTANT: The critic is centrally-trained with access to all agents' state observations, while the actor only makes predictions using its own state. This approach seems reasonable to me since having a separate critic per actor training on a limited subset of observations seems wasted effort, but I'm not 100% sure. If necessary, I can change the approach to separate critic networks, though I think this should work for training purposes.
+3. There is a clearly defined spot for loading our environment (see main.`make_env`), but it does expect our multi-agent environments to have a member accessible by ".n" which stores the number of agents intrinsic to that environment (e.g. n = 2 for Pong).
+
+There is still quite a bit of work to be done by me this week to get this training-ready (and I should be able to delete a lot more code than I have already).
