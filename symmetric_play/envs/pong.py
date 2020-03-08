@@ -1,143 +1,108 @@
-# Multi-player pong environment for Gym
-# Thanks to https://github.com/Steven-Hewitt/Multi-Agent-Pong-Rally/blob/master/two_player/pong.py for supplying the environment
-
-
-import numpy.random as random
-import pygame, sys
-from pygame.locals import *
-import pygame.surfarray as sarray
+from gym import spaces
 import numpy as np
-from gym import Env, spaces
-pygame.init()
+import random
 
-#colors
-WHITE = (255,255,255)
-RED = (255,0,0)
-GREEN = (0,255,0)
-BLACK = (0,0,0)
-
-#globals
-WIDTH = 600
-HEIGHT = 400	   
-BALL_RADIUS = 5
-PAD_WIDTH = 8
-PAD_HEIGHT = 200
-HALF_PAD_WIDTH = PAD_WIDTH / 2
-HALF_PAD_HEIGHT = PAD_HEIGHT / 2
- 
 class PongObject:
-	def __init__(self,pos,vel):
-		self.pos = pos
+	def __init__(self, pos, vel):
+        self.pos = pos
 		self.vel = vel
-	def accelerate(self, paddle, acceleration):
-		v = paddle.vel 
-		sign_a = np.sign(acceleration)
-		if np.sign(v) == sign_a:
-			paddle.vel = 0.8*(v+acceleration)
-		else:
-			paddle.vel = v+acceleration
-			
-class PongGame(Env):
-	metadata = {'render.modes': ['human', 'rgb_array']}
+        self.score = 0
 
+class CustomEnv(gym.Env):
+    """Custom Environment that follows gym interface"""
+    metadata = {'render.modes': ['console']}
 
-	#canvas declaration
-	#window = pygame.display.set_mode((WIDTH, HEIGHT), 0, 32)
-	#pygame.display.set_caption('Hello World')
-		
+    # Game Parameters
+    screenWidth = 400
+    screenHeight = 600
+    ballHeight = 5
+    ballWidth = 5, 
+    paddleWidth = 5
+    paddleHeight = 100
+    n_actions = 6
+    paddleSpeed = 10
+    maxscore = 10
 
-	# define event handlers
-	def __init__(self):
-		self.viewer = None
-		self.paddle1, self.paddle2, self.reward = PongObject([HALF_PAD_WIDTH - 1,HEIGHT/2], 0), PongObject([WIDTH +1 - HALF_PAD_WIDTH,HEIGHT/2], 0), 0
-		self.canvas = None
-		self.screen = None
-		self.rng = np.random.RandomState()
-		self.action_space = spaces.Box(low=-2,high=2, shape=(2,))
-		self.observation_space = spaces.Box(low=0, high=255, shape=(WIDTH, HEIGHT, 3))
+    def __init__(self):
+        super(CustomEnv, self).__init__()
+        self.viewer = None
+        self.action_space = spaces.Discrete(5)
+        self.observation_space = spaces.Box(low=0, high=255,shape=(screenHeight, screenWidth, 3), dtype=np.uint8)
 
-	def _seed(self, seed=None):
-		self.rng.seed(seed)
-	def _reset(self):
-		self.is_finished = False
-		self.paddle1, self.paddle2, self.reward = PongObject([HALF_PAD_WIDTH - 1,HEIGHT/2], 0), PongObject([WIDTH +1 - HALF_PAD_WIDTH,HEIGHT/2], 0), 0
-		
-		horz = self.rng.uniform(2,4)
-		vert = self.rng.uniform(-3,3)
-		if self.rng.randint(2):
-			self.ball = PongObject([WIDTH/2,HEIGHT/2], [-horz, vert])
-		else:
-			self.ball = PongObject([WIDTH/2,HEIGHT/2], [horz, vert])
-		return self._step([0,0])[0]
-	
-	#draw function of canvas
-	def _step(self, action):
-		self.paddle1.accelerate(action[0])
-		self.paddle2.accelerate(action[1])
+    def reset(self):
+        self.ball = PongObject((screenWidth/2, screenHeight/2), (random.choice(1,-1), 0))
+        self.paddle0 = PongObject((paddleWidth, screenHeight/2), (0,0))
+        self.paddle1 = PongObject((screenWidth - paddleWidth, screenHeight/2), (0,0))
+        return (self.ball, self.paddle0, self.paddle1)
+        
+    def step(self, action):
 
-		# update paddle's vertical position, keep paddle on the screen
-		self.paddle1.pos[1] =  min(max(HALF_PAD_HEIGHT,self.paddle1.vel+self.paddle1.pos[1]),HEIGHT-HALF_PAD_HEIGHT)
-		
-		self.paddle2.pos[1] =  min(max(HALF_PAD_HEIGHT,self.paddle2.vel+self.paddle2.pos[1]),HEIGHT-HALF_PAD_HEIGHT)
-		
-		#update ball
-		self.ball.pos[0] += int(self.ball.vel[0])
-		#ball collision check on top and bottom walls
-		self.ball.pos[1] = min(HEIGHT + 1 - BALL_RADIUS, max(self.ball.pos[1] + self.ball.vel[1], BALL_RADIUS))
-		if self.ball.pos[1] in (HEIGHT + 1 - BALL_RADIUS,BALL_RADIUS):
-			self.ball.vel[1] *= -1
-		
-		self.reward = np.absolute(self.ball.vel[1])
-		#ball collison check on gutters or paddles
-		if int(self.ball.pos[0]) <= BALL_RADIUS+HALF_PAD_WIDTH: 
-			if int(self.ball.pos[1]) in range(int(self.paddle1.pos[1] - HALF_PAD_HEIGHT),int(self.paddle1.pos[1] + HALF_PAD_HEIGHT)):
-				self.ball.vel[0] = -self.ball.vel[0]
-				self.ball.vel[0] *= 1.1
-				self.ball.vel[1] *= 1.1
-			elif int(self.ball.pos[0]) <= 0:
-				self.is_finished = True
-			
-		if int(self.ball.pos[0]) >= WIDTH - BALL_RADIUS-HALF_PAD_WIDTH:
-			if int(self.ball.pos[1]) in range(int(self.paddle2.pos[1] - HALF_PAD_HEIGHT),int(self.paddle2.pos[1] + HALF_PAD_HEIGHT)):
-				self.ball.vel[0] = -self.ball.vel[0]
-				self.ball.vel[0] *= 1.1
-				self.ball.vel[1] *= 1.1
-			elif int(self.ball.pos[0]) >= WIDTH:
-				self.is_finished = True
-		# self.screen = sarray.array3d(self.canvas)
-		return np.array(self.ball, self.paddle1, self.paddle2), self.reward, self.is_finished, None
-		
-	def _render(self,mode='human',close=False):
-        self.canvas = pygame.Surface((WIDTH, HEIGHT))
-		self.screen = sarray.array3d(self.canvas)
+        # Update velocities
+        self.paddle0.vel[1] = paddleSpeed*(action[0]-2)
+        self.paddle1.vel[1] = paddleSpeed*(action[1]-2)
 
-        #set up canvas
-        self.canvas.fill(BLACK)
-		pygame.draw.line(self.canvas, WHITE, [WIDTH / 2, 0],[WIDTH / 2, HEIGHT], 1)
-		pygame.draw.line(self.canvas, WHITE, [PAD_WIDTH, 0],[PAD_WIDTH, HEIGHT], 1)
-		pygame.draw.line(self.canvas, WHITE, [WIDTH - PAD_WIDTH, 0],[WIDTH - PAD_WIDTH, HEIGHT], 1)
-		pygame.draw.circle(self.canvas, WHITE, [WIDTH//2, HEIGHT//2], 70, 1)
+        # Update positions but keep paddles in the screen
+        self.paddle0.pos = min(max(self.paddle0.vel+self.paddle1.pos, 0), screenHeight - paddleHeight)
+        self.paddle1.pos = min(max(self.paddle1.vel+self.paddle1.pos, 0), screenHeight - paddleHeight)
 
-        #draw paddles and ball
-		pygame.draw.circle(self.canvas, RED, [*map(int,self.ball.pos)], BALL_RADIUS, 0)
-		pygame.draw.polygon(self.canvas, GREEN, [[self.paddle1.pos[0] - HALF_PAD_WIDTH, self.paddle1.pos[1] - HALF_PAD_HEIGHT], 
-												[self.paddle1.pos[0] - HALF_PAD_WIDTH, self.paddle1.pos[1] + HALF_PAD_HEIGHT], 
-												[self.paddle1.pos[0] + HALF_PAD_WIDTH, self.paddle1.pos[1] + HALF_PAD_HEIGHT], 
-												[self.paddle1.pos[0] + HALF_PAD_WIDTH, self.paddle1.pos[1] - HALF_PAD_HEIGHT]], 0)
-		pygame.draw.polygon(self.canvas, GREEN, [[self.paddle2.pos[0] - HALF_PAD_WIDTH, self.paddle2.pos[1] - HALF_PAD_HEIGHT], 
-												[self.paddle2.pos[0] - HALF_PAD_WIDTH, self.paddle2.pos[1] + HALF_PAD_HEIGHT], 
-												[self.paddle2.pos[0] + HALF_PAD_WIDTH, self.paddle2.pos[1] + HALF_PAD_HEIGHT], 
-												[self.paddle2.pos[0] + HALF_PAD_WIDTH, self.paddle2.pos[1] - HALF_PAD_HEIGHT]], 0)
+        # Update ball position, don't let it overlap with paddle or leave the screen
+        meetpaddle0 = False
+        meetpaddle1 = False
+        meetscreen = False
+        newBallX = self.ball.pos[0] + self.ball.vel[0]
+        newBallY = self.ball.pos[0] + self.ball.vel[0]
+        if (newBallY < 0): 
+            newBallY = 0
+            meetscreen = True
+        else if (newBallY > screenHeight - ballHeight*0.5):
+            newBallY = screenHeight - ballHeight*0.5
+            meetscreen = True
+        if (self.paddle0.pos - paddleHeight*0.5 < newBallY and self.paddle0.pos + paddleHeight*0.5 > newBallY
+                and newBallX - ballWidth*0.5 <= paddleWidth): 
+            newBallX = paddleWidth
+            meetpaddle0 = True
+        else if (self.paddle1.pos + paddleHeight*0.5 < newBallY and self.paddle1.pos + paddleHeight*0.5 > newBallY
+                and newBallX + ballWidth*0.5 >= screenWidth - paddleWidth):
+            newBallX = screenWidth - paddleWidth
+            meetpaddle1 = True
+        self.ball.pos = (newBallX, newBallY)
 
-		if close:
-			if self.viewer is not None:
-				self.viewer.close()
-				self.viewer = None
-			return
-		if mode == 'rgb_array':
-			return self.screen
-		elif mode == 'human':
-			from gym.envs.classic_control import rendering
-			if self.viewer is None:
-				self.viewer = rendering.SimpleImageViewer()
-			self.viewer.imshow(self.screen)
+        # Update ball velocity: hitting the edge of the screen and the paddles will cause it to bounce back
+        # Hitting the paddle while the paddle is moving will cause the ball to accelerate in that direction as well
+        if meetpaddle0: 
+            self.ball.vel[0] *= -1
+            self.ball.vel[1] += self.paddle0.vel[1]
+        else if meetpaddle1: 
+            self.ball.vel[0] *= -1
+            self.ball.vel[1] += self.paddle1.vel[1]
+        if meetscreen:
+            self.ball.vel[1] *= -1
+
+        # Player 1 scores a goal
+        if (self.ball.pos[0] < 0): 
+            reward[1] += 1
+            reward[0] -= 1
+            self.paddle1.score += 1
+        # Player 0 scores a goal
+        else if (self.ball.pos[0] > screenWidth):
+            reward[1] += 1
+            reward[0] -= 1
+            self.paddle0.score += 1
+        
+        # If any player scores above maxscore, the game ends
+        if (self.paddle1.score >= maxscore or self.paddle0.score >= maxscore):
+            done = True
+        else:
+            done = False
+        info = {meetpaddle0, meetpaddle1}
+
+    return (self.ball, self.paddle0, self.paddle1), reward, done, info
+
+    def render(self, mode='human'):
+        pass #TODO
+
+    def close (self):
+        #TODO
+        if self.viewer is not None:
+            self.viewer.close()
+            self.viewer = None
