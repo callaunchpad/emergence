@@ -100,7 +100,7 @@ def get_policy(params: ModelParams):
         elif alg_name == 'DDPG':
             search_location = stable_baselines.ddpg.policies
         elif alg_name == 'DQN':
-            search_location = stable_baselines.dqn.policies
+            search_location = stable_baselines.deepq.policies
         elif alg_name == 'TD3':
             search_location = stable_baselines.td3.policies
         else:

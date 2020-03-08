@@ -1,4 +1,7 @@
 import os
+import imageio
+import copy
+import gym
 from stable_baselines.bench import Monitor
 from stable_baselines import logger
 import numpy as np
@@ -10,9 +13,9 @@ from symmetric_play.utils.loader import get_paths, get_env, get_alg, get_policy
 
 best_mean_reward, n_steps = -np.inf, 0
 
-def callback(_locals, _globals, data_dir, freq=None, checkpoint_freq=None):
+def callback(_locals, _globals, data_dir, params, env, freq=None, checkpoint_freq=None):
     """
-    Callback called at each step (for DQN an others) or after n steps (see ACER or PPO2)
+    Callback called at each step (for DQN and others) or after n steps (see ACER or PPO2)
     :param _locals: (dict)
     :param _globals: (dict)
     """
@@ -35,21 +38,42 @@ def callback(_locals, _globals, data_dir, freq=None, checkpoint_freq=None):
                 _locals['self'].save(data_dir + '/best_model')
         # TODO: Perhaps augment to save a video?
 
-    if not checkpoint_freq is None and (n_steps +1) % checkpoint_freq == 0:
+    if not checkpoint_freq is None and (n_steps + 1) % checkpoint_freq == 0:
         name = "/checkpoint_" + str(n_steps + 1)
         _locals['self'].save(data_dir + name)
+
+       # save GIF
+
+       # copy model and environment since environment is variable embedded in SB models
+       # NOTE: may break if model is passed to train function
+        alg = get_alg(params)
+        model = alg.load(data_dir + name)
+        new_env = get_env(params)
+        
+        images = []
+        obs = new_env.reset()
+        img = new_env.render(mode='rgb_array')
+        for i in range(350):
+            images.append(img)
+            action, _ = model.predict(obs)
+            obs, _, _ ,_ = new_env.step(action)
+            img = new_env.render(mode='rgb_array')
+        file_name = data_dir + name + '.gif'
+        imageio.mimsave(file_name, [np.array(img) for i, img in enumerate(images) if i%2 == 0], fps=29, subrectangles=True)
+        new_env.close()
+
     n_steps += 1
     return True
 
-def create_training_callback(data_dir, freq=None, checkpoint_freq=None):
-    return lambda _locals, _globals: callback(_locals, _globals, data_dir, freq=freq, checkpoint_freq=checkpoint_freq)
+def create_training_callback(data_dir, params, env, freq=None, checkpoint_freq=None):
+    return lambda _locals, _globals: callback(_locals, _globals, data_dir, params, env, freq=freq, checkpoint_freq=checkpoint_freq)
 
 def train(params, model=None, env=None): 
     print("Training Parameters: ", params)
 
     data_dir, tb_path = get_paths(params)
     os.makedirs(data_dir, exist_ok=True)
-    # Save parameters immediatly
+    # Save parameters immediately
     params.save(data_dir)
 
     rank = mpi_rank_or_zero()
@@ -85,8 +109,11 @@ def train(params, model=None, env=None):
     else:
         model.set_env(env)
 
+    print("\n===============================\n")
+    print("TENSORBOARD PATH:", tb_path)
+    print("\n===============================\n")
     model.learn(total_timesteps=params['timesteps'], log_interval=params['log_interval'], 
-                callback=create_training_callback(data_dir, freq=params['eval_freq'], checkpoint_freq=params['checkpoint_freq']))
+                callback=create_training_callback(data_dir, params, env, freq=params['eval_freq'], checkpoint_freq=params['checkpoint_freq']))
     
     model.save(data_dir +'/final_model')
 
