@@ -17,7 +17,6 @@ setup(name='symmetric_play',
             'stable_baselines[mpi]==2.9.0',
             'numpy<1.17',
             'matplotlib',
-            'pygame',
             'seaborn'],
         extras_require={
             'cpu' : ['tensorflow==1.14.0'],

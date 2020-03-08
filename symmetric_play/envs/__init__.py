@@ -4,3 +4,5 @@ This can be done as follows:
 from .symmetric import Test
 'Test' will then be a valid environment name that can be used with the loader.
 '''
+
+from .Sneks.sneks.envs.snek import SingleSnek
