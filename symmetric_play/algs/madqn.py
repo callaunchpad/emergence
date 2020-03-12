@@ -54,13 +54,17 @@ class DQN(OffPolicyRLModel):
     :param n_cpu_tf_sess: (int) The number of threads for TensorFlow operations
         If None, the number of cpu of the current machine will be used.
     """
+    def get_nth_agent_action_space(self, action_space, n):
+        return action_space[n] # TODO
+
     def __init__(self, policy, env, gamma=0.99, learning_rate=5e-4, buffer_size=50000, exploration_fraction=0.1,
                  exploration_final_eps=0.02, exploration_initial_eps=1.0, train_freq=1, batch_size=32, double_q=True,
                  learning_starts=1000, target_network_update_freq=500, prioritized_replay=False,
                  prioritized_replay_alpha=0.6, prioritized_replay_beta0=0.4, prioritized_replay_beta_iters=None,
                  prioritized_replay_eps=1e-6, param_noise=False,
                  n_cpu_tf_sess=None, verbose=0, tensorboard_log=None,
-                 _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False, seed=None):
+                 _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False, seed=None,
+                 num_agents=1): # MA-MOD
 
         # TODO: replay_buffer refactoring
         super(DQN, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
@@ -85,14 +89,15 @@ class DQN(OffPolicyRLModel):
         self.tensorboard_log = tensorboard_log
         self.full_tensorboard_log = full_tensorboard_log
         self.double_q = double_q
+        self.num_agents = num_agents
 
         self.graph = None
         self.sess = None
-        self._train_step = None
-        self.step_model = None
-        self.update_target = None
-        self.act = None
-        self.proba_step = None
+        self._train_step = [] # MA-MOD
+        self.step_model = [] # MA-MOD
+        self.update_target = None # NOUPDATE
+        self.act = [] # MA-MOD
+        self.proba_step = [] # MA-MOD
         self.replay_buffer = None
         self.beta_schedule = None
         self.exploration = None
@@ -109,8 +114,9 @@ class DQN(OffPolicyRLModel):
     def setup_model(self):
 
         with SetVerbosity(self.verbose):
-            assert not isinstance(self.action_space, gym.spaces.Box), \
-                "Error: DQN cannot output a gym.spaces.Box action space."
+            for i in range(self.num_agents):
+                assert not isinstance(self.get_nth_agent_action_space(self.action_space, i), gym.spaces.Box), \
+                    "Error: DQN cannot output a gym.spaces.Box action space."
 
             # If the policy is wrap in functool.partial (e.g. to disable dueling)
             # unwrap it to check the class type
@@ -128,20 +134,24 @@ class DQN(OffPolicyRLModel):
 
                 optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
 
-                self.act, self._train_step, self.update_target, self.step_model = build_train(
-                    q_func=partial(self.policy, **self.policy_kwargs),
-                    ob_space=self.observation_space,
-                    ac_space=self.action_space,
-                    optimizer=optimizer,
-                    gamma=self.gamma,
-                    grad_norm_clipping=10,
-                    param_noise=self.param_noise,
-                    sess=self.sess,
-                    full_tensorboard_log=self.full_tensorboard_log,
-                    double_q=self.double_q
-                )
-                self.proba_step = self.step_model.proba_step
-                self.params = tf_util.get_trainable_vars("deepq")
+                for i in range(self.num_agents):
+                    act, _train_step, self.update_target, step_model = build_train(
+                        q_func=partial(self.policy, **self.policy_kwargs),
+                        ob_space=self.observation_space,
+                        ac_space=self.get_nth_agent_action_space(self.action_space, i),
+                        optimizer=optimizer,
+                        gamma=self.gamma,
+                        grad_norm_clipping=10,
+                        param_noise=self.param_noise,
+                        sess=self.sess,
+                        full_tensorboard_log=self.full_tensorboard_log,
+                        double_q=self.double_q
+                    )
+                    self.act.append(act)
+                    self._train_step.append(_train_step)
+                    self.step_model.append(step_model)
+                    self.proba_step,append(self.step_model[-1].proba_step)
+                self.params = tf_util.get_trainable_vars("deepq") # TODO: Joey: does this need to be separate for each agent?
 
                 # Initialize the parameters and copy them to the target network.
                 tf_util.initialize(self.sess)
@@ -210,10 +220,12 @@ class DQN(OffPolicyRLModel):
                     kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                     kwargs['update_param_noise_scale'] = True
                 with self.sess.as_default():
-                    action = self.act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
-                env_action = action
+                    env_action = [] # MA-MOD
+                    for i in range(self.num_agents): # MA-MOD
+                        action = self.act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
+                        env_action.append(action) # TODO: this is likely not the correct way to concatenate
                 reset = False
-                new_obs, rew, done, info = self.env.step(env_action)
+                new_obs, rew, done, info = self.env.step(env_action) # NOUPDATE - env.step should take a vector of actions
 
                 self.num_timesteps += 1
 
@@ -248,39 +260,41 @@ class DQN(OffPolicyRLModel):
                         and self.num_timesteps % self.train_freq == 0:
 
                     callback.on_rollout_end()
-                    # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
-                    # pytype:disable=bad-unpacking
-                    if self.prioritized_replay:
-                        assert self.beta_schedule is not None, \
-                               "BUG: should be LinearSchedule when self.prioritized_replay True"
-                        experience = self.replay_buffer.sample(self.batch_size,
-                                                               beta=self.beta_schedule.value(self.num_timesteps))
-                        (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
-                    else:
-                        obses_t, actions, rewards, obses_tp1, dones = self.replay_buffer.sample(self.batch_size)
-                        weights, batch_idxes = np.ones_like(rewards), None
-                    # pytype:enable=bad-unpacking
 
-                    if writer is not None:
-                        # run loss backprop with summary, but once every 100 steps save the metadata
-                        # (memory, compute time, ...)
-                        if (1 + self.num_timesteps) % 100 == 0:
-                            run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
-                            run_metadata = tf.RunMetadata()
-                            summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
-                                                                  dones, weights, sess=self.sess, options=run_options,
-                                                                  run_metadata=run_metadata)
-                            writer.add_run_metadata(run_metadata, 'step%d' % self.num_timesteps)
+                    for i in range(self.num_agents): # MA-MOD
+                        # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
+                        # pytype:disable=bad-unpacking
+                        if self.prioritized_replay:
+                            assert self.beta_schedule is not None, \
+                                   "BUG: should be LinearSchedule when self.prioritized_replay True"
+                            experience = self.replay_buffer.sample(self.batch_size,
+                                                                   beta=self.beta_schedule.value(self.num_timesteps))
+                            (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
                         else:
-                            summary, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1,
-                                                                  dones, weights, sess=self.sess)
-                        writer.add_summary(summary, self.num_timesteps)
-                    else:
-                        _, td_errors = self._train_step(obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
-                                                        sess=self.sess)
+                            obses_t, actions, rewards, obses_tp1, dones = self.replay_buffer.sample(self.batch_size)
+                            weights, batch_idxes = np.ones_like(rewards), None
+                        # pytype:enable=bad-unpacking
 
-                    if self.prioritized_replay:
-                        new_priorities = np.abs(td_errors) + self.prioritized_replay_eps
+                        if writer is not None:
+                            # run loss backprop with summary, but once every 100 steps save the metadata
+                            # (memory, compute time, ...)
+                            if (1 + self.num_timesteps) % 100 == 0:
+                                run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+                                run_metadata = tf.RunMetadata()
+                                summary, td_errors = self._train_step[i](obses_t, actions, rewards, obses_tp1, obses_tp1,
+                                                                      dones, weights, sess=self.sess, options=run_options,
+                                                                      run_metadata=run_metadata)
+                                writer.add_run_metadata(run_metadata, 'step%d_agent%d' % (self.num_timesteps, i))
+                            else:
+                                summary, td_errors = self._train_step[i](obses_t, actions, rewards, obses_tp1, obses_tp1,
+                                                                      dones, weights, sess=self.sess)
+                            writer.add_summary(summary, self.num_timesteps)
+                        else:
+                            _, td_errors = self._train_step[i](obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
+                                                            sess=self.sess)
+
+                    if self.prioritized_replay: # NOUPDATE - not inside main agent for loop
+                        new_priorities = np.abs(td_errors) + self.prioritized_replay_eps # NOUPDATE
                         assert isinstance(self.replay_buffer, PrioritizedReplayBuffer)
                         self.replay_buffer.update_priorities(batch_idxes, new_priorities)
 
@@ -289,7 +303,7 @@ class DQN(OffPolicyRLModel):
                 if can_sample and self.num_timesteps > self.learning_starts and \
                         self.num_timesteps % self.target_network_update_freq == 0:
                     # Update target network periodically.
-                    self.update_target(sess=self.sess)
+                    self.update_target(sess=self.sess) # NOUPDATE
 
                 if len(episode_rewards[-101:-1]) == 0:
                     mean_100ep_reward = -np.inf
@@ -310,19 +324,21 @@ class DQN(OffPolicyRLModel):
         callback.on_training_end()
         return self
 
-    def predict(self, observation, state=None, mask=None, deterministic=True):
+    def predict(self, observation, agent_idx, state=None, mask=None, deterministic=True): # MA-MOD - added `agent_idx` as a parameter
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
         with self.sess.as_default():
-            actions, _, _ = self.step_model.step(observation, deterministic=deterministic)
+            actions, _, _ = self.step_model[agent_idx].step(observation, deterministic=deterministic)
 
         if not vectorized_env:
             actions = actions[0]
 
         return actions, None
 
+    '''
+    # No one ever calls this, so we don't need it?
     def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
@@ -347,6 +363,7 @@ class DQN(OffPolicyRLModel):
             actions_proba = actions_proba[0]
 
         return actions_proba
+    '''
 
     def get_parameter_list(self):
         return self.params
