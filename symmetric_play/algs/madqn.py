@@ -13,7 +13,7 @@ from stable_baselines.deepq.build_graph import build_train
 from stable_baselines.deepq.policies import DQNPolicy
 
 
-class DQN(OffPolicyRLModel):
+class MADQN(OffPolicyRLModel):
     """
     The DQN model class.
     DQN paper: https://arxiv.org/abs/1312.5602
@@ -67,7 +67,7 @@ class DQN(OffPolicyRLModel):
                  num_agents=1): # MA-MOD
 
         # TODO: replay_buffer refactoring
-        super(DQN, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
+        super(MADQN, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
                                   requires_vec_env=False, policy_kwargs=policy_kwargs, seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
 
         self.param_noise = param_noise
@@ -98,7 +98,8 @@ class DQN(OffPolicyRLModel):
         self.update_target = None # NOUPDATE
         self.act = [] # MA-MOD
         self.proba_step = [] # MA-MOD
-        self.replay_buffer = None
+        self.replay_buffer = None # TODO: Possibly try seperate replay buffer. If everything symmetric, OK for one. 
+                                    # If you have the same Value function, its fine. If you have seperate functions, if you have one replay buffer, they learn from the same data.
         self.beta_schedule = None
         self.exploration = None
         self.params = None
@@ -152,10 +153,15 @@ class DQN(OffPolicyRLModel):
                     self.step_model.append(step_model)
                     self.proba_step,append(self.step_model[-1].proba_step)
                 self.params = tf_util.get_trainable_vars("deepq") # TODO: Joey: does this need to be separate for each agent?
+                                                                  # Answer: yes and no. It really depends. 
+                                                                  # if you don't seperate them, when you save the model, both agent policies will be in the same file
+                                                                  # If you do seperate them, you can save two different files. 
+                                                                  # Your agenet policies is tied to multi-agent alg only. 
+                                                                  # Don't worry about this until it becomes a problem.  
 
                 # Initialize the parameters and copy them to the target network.
-                tf_util.initialize(self.sess)
-                self.update_target(sess=self.sess)
+                tf_util.initialize(self.sess) # TODO: copy this file, make two versions of the algorithm.
+                self.update_target(sess=self.sess) # TODO: Not sure, seems like the best thing to do is try using each agents own target first. 
 
                 self.summary = tf.summary.merge_all()
 
@@ -169,6 +175,7 @@ class DQN(OffPolicyRLModel):
                 as writer:
             self._setup_learn()
 
+            
             # Create the replay buffer
             if self.prioritized_replay:
                 self.replay_buffer = PrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha)
@@ -221,11 +228,17 @@ class DQN(OffPolicyRLModel):
                     kwargs['update_param_noise_scale'] = True
                 with self.sess.as_default():
                     env_action = [] # MA-MOD
-                    for i in range(self.num_agents): # MA-MOD
-                        action = self.act(np.array(obs)[None], update_eps=update_eps, **kwargs)[0]
-                        env_action.append(action) # TODO: this is likely not the correct way to concatenate
+                    for i in range(self.num_agents): # MA-MOD. This is fine for one policy.
+                        action = self.act[i](np.array(obs)[None], update_eps=update_eps, **kwargs)[0] # ERROR, obs is also per agent. 
+                        env_action.append(action) # TODO: this is likely not the correct way to concatenate. yes (Batch, N_agents, Act_dim) right now this is (N_agents, batch, act_dim)
                 reset = False
                 new_obs, rew, done, info = self.env.step(env_action) # NOUPDATE - env.step should take a vector of actions
+
+                '''
+                Obs: x_me, x_opp --- agent 1. In env: x_1, x_2
+                Obs: x_me, x_opp -- agent 2. In env: x_2, x_1
+                Env: (n_agents, state_dim)
+                '''
 
                 self.num_timesteps += 1
 
@@ -234,6 +247,7 @@ class DQN(OffPolicyRLModel):
                     break
 
                 # Store transition in the replay buffer.
+                # Loop for replay buffer -- either seperate or joined. obs[agent_index], action[agent_index], reward[agent_index]
                 self.replay_buffer.add(obs, action, rew, new_obs, float(done))
                 obs = new_obs
 
@@ -310,6 +324,7 @@ class DQN(OffPolicyRLModel):
                 else:
                     mean_100ep_reward = round(float(np.mean(episode_rewards[-101:-1])), 1)
 
+                # below is what's logged in terminal.
                 num_episodes = len(episode_rewards)
                 if self.verbose >= 1 and done and log_interval is not None and len(episode_rewards) % log_interval == 0:
                     logger.record_tabular("steps", self.num_timesteps)

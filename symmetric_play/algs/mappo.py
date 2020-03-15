@@ -12,7 +12,7 @@ from stable_baselines.common.schedules import get_schedule_fn
 from stable_baselines.common.tf_util import total_episode_reward_logger
 from stable_baselines.common.math_util import safe_mean
 
-class PPO2(ActorCriticRLModel):
+class MAPPO2(ActorCriticRLModel):
     """
     Proximal Policy Optimization algorithm (GPU version).
     Paper: https://arxiv.org/abs/1707.06347

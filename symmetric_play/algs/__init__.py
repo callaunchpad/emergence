@@ -1,1 +1,2 @@
-from .mappo import PPO2
+# from .mappo import MAPPO2
+from .madqn import MADQN
