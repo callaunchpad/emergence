@@ -107,13 +107,14 @@ class Pong(gym.Env):
             self.done = False
         self.info = np.array([meetpaddle0, meetpaddle1])
         
-        return np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten(), \ 
-            np.array([self.ball.pos, self.paddle1.pos, self.paddle0.pos, self.ball.vel, self.paddle1.vel, self.paddle0.vel]).flatten(), \
-            self.reward[0], self.reward[1], \
-            np.array(self.done, self.done), self.info[0], self.info[1]
+        return np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten(), 
+        np.array([self.ball.pos, self.paddle1.pos, self.paddle0.pos, self.ball.vel, self.paddle1.vel, self.paddle0.vel]).flatten(), 
+        self.reward[0], self.reward[1], np.array(self.done, self.done), self.info[0], self.info[1]
+        #info should be a dictionary
+        #flip x coordinate of second returned observation and concatenate it with first observation
+        #same with reward and done
         
-    def render(self, mode='human'):
-
+	def render(self, mode='human'):
 		WHITE = (255,255,255)
 		RED = (255, 0, 0)
 		GREEN = (0, 255, 0)
