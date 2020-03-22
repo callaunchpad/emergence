@@ -375,6 +375,6 @@ if __name__ == "__main__":
     for i in range(1000):
         env.render(mode='human')
         action = env.action_space.sample()
-        obs, reward, done, _ = env.step(action)
+        obs, reward, done, _ = env.step([action])
         if done:
             obs = env.reset()
