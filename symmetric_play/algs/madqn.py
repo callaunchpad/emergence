@@ -55,7 +55,7 @@ class MADQN(OffPolicyRLModel):
         If None, the number of cpu of the current machine will be used.
     """
     def get_nth_agent_action_space(self, action_space, n):
-        return action_space[n] # TODO Is this the right way to get the n-th agent action space? 
+        return action_space[n] # TODO Is this the right way to get the n-th agent action space?
 
     def __init__(self, policy, env, gamma=0.99, learning_rate=5e-4, buffer_size=50000, exploration_fraction=0.1,
                  exploration_final_eps=0.02, exploration_initial_eps=1.0, train_freq=1, batch_size=32, double_q=True,
@@ -98,7 +98,7 @@ class MADQN(OffPolicyRLModel):
         self.update_target = [] # MA-MOD
         self.act = [] # MA-MOD
         self.proba_step = [] # MA-MOD
-        self.replay_buffer = None # TODO: Possibly try seperate replay buffer. If everything symmetric, OK for one. 
+        self.replay_buffer = None # TODO: Possibly try seperate replay buffer. If everything symmetric, OK for one.
                                     # If you have the same Value function, its fine. If you have seperate functions, if you have one replay buffer, they learn from the same data.
         self.beta_schedule = None
         self.exploration = None
@@ -154,16 +154,16 @@ class MADQN(OffPolicyRLModel):
                     self.proba_step.append(self.step_model[-1].proba_step)
                     self.update_target.append(update_target)
                 self.params = tf_util.get_trainable_vars("deepq") # TODO: Joey: does this need to be separate for each agent?
-                                                                  # Answer: yes and no. It really depends. 
+                                                                  # Answer: yes and no. It really depends.
                                                                   # if you don't seperate them, when you save the model, both agent policies will be in the same file
-                                                                  # If you do seperate them, you can save two different files. 
-                                                                  # Your agenet policies is tied to multi-agent alg only. 
-                                                                  # Don't worry about this until it becomes a problem.  
+                                                                  # If you do seperate them, you can save two different files.
+                                                                  # Your agenet policies is tied to multi-agent alg only.
+                                                                  # Don't worry about this until it becomes a problem.
 
                 # Initialize the parameters and copy them to the target network.
                 tf_util.initialize(self.sess) # TODO: copy this file, make two versions of the algorithm.
                 for i in range(self.num_agents):
-                    self.update_target[i](sess=self.sess) # TODO: Not sure, seems like the best thing to do is try using each agents own target first. 
+                    self.update_target[i](sess=self.sess) # TODO: Not sure, seems like the best thing to do is try using each agents own target first.
 
                 self.summary = tf.summary.merge_all()
 
@@ -177,7 +177,7 @@ class MADQN(OffPolicyRLModel):
         #         as writer:
         self._setup_learn()
 
-        
+
         # Create the replay buffer
         if self.prioritized_replay:
             self.replay_buffer = PrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha)
@@ -232,7 +232,7 @@ class MADQN(OffPolicyRLModel):
                 env_action = [] # MA-MOD
                 for i in range(self.num_agents): # MA-MOD. This is fine for one policy.
                     action = self.act[i](np.array(obs[i])[None], update_eps=update_eps, **kwargs)[0] # TODO: Is this the correct way to get the correct agent obs?
-                    env_action.append(action) 
+                    env_action.append(action)
             reset = False
             new_obs, rew, done, info = self.env.step(env_action) # NOUPDATE - env.step should take a vector of actions
 
@@ -249,8 +249,10 @@ class MADQN(OffPolicyRLModel):
                 break
 
             # Store transition in the replay buffer.
-            # Loop for replay buffer -- either seperate or joined. obs[agent_index], action[agent_index], reward[agent_index]
-            self.replay_buffer.add(obs, action, rew, new_obs, float(done))
+            # Loop for replay buffer -- either separate or joined. obs[agent_index], action[agent_index], reward[agent_index]
+            # Joey: Does this look right to you?
+            for num_agent in range(self.num_agents):
+                self.replay_buffer.add(obs[num_agent], action[num_agent], rew[num_agent], new_obs[num_agent], float(done))
             obs = new_obs
 
             # if writer is not None:
@@ -319,7 +321,7 @@ class MADQN(OffPolicyRLModel):
             if can_sample and self.num_timesteps > self.learning_starts and \
                     self.num_timesteps % self.target_network_update_freq == 0:
                 # Update target network periodically.
-                for i in range(self.num_agents): 
+                for i in range(self.num_agents):
                     self.update_target[i](sess=self.sess) # MA-MOD
 
             if len(episode_rewards[-101:-1]) == 0:
