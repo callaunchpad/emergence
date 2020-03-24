@@ -67,7 +67,7 @@ class ModelParams(dict):
 def get_alg(params: ModelParams):
     alg_name = params['alg']
     try:
-        alg = vars(symmetric_play)[alg_name]
+        alg = vars(symmetric_play.algs)[alg_name]
     except:
         alg = vars(stable_baselines)[alg_name]
     return alg
