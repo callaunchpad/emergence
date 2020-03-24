@@ -67,7 +67,7 @@ class MADQN(OffPolicyRLModel):
         # TODO: replay_buffer refactoring
         super(MADQN, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
                                   requires_vec_env=False, policy_kwargs=policy_kwargs, seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
-
+        # print("POLICY TYPE", policy)
         self.param_noise = param_noise
         self.learning_starts = learning_starts
         self.train_freq = train_freq
@@ -123,7 +123,7 @@ class MADQN(OffPolicyRLModel):
                 test_policy = self.policy.func
             else:
                 test_policy = self.policy
-            print(test_policy.type)
+            # print(test_policy.type)
             assert issubclass(test_policy, DQNPolicy), "Error: the input policy for the DQN model must be " \
                                                        "an instance of DQNPolicy."
 
@@ -170,7 +170,7 @@ class MADQN(OffPolicyRLModel):
               reset_num_timesteps=True, replay_wrapper=None):
 
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
-        callback = self._init_callback(callback)
+        # callback = self._init_callback(callback)
 
         # with SetVerbosity(self.verbose), TensorboardWriter(self.graph, self.tensorboard_log, tb_log_name, new_tb_log) \
         #         as writer:
@@ -203,8 +203,8 @@ class MADQN(OffPolicyRLModel):
         episode_rewards = [0.0]
         episode_successes = []
 
-        callback.on_training_start(locals(), globals())
-        callback.on_rollout_start()
+        #callback.on_training_start(locals(), globals())
+        #callback.on_rollout_start()
 
         reset = True
         obs = self.env.reset()
@@ -276,7 +276,7 @@ class MADQN(OffPolicyRLModel):
             if can_sample and self.num_timesteps > self.learning_starts \
                     and self.num_timesteps % self.train_freq == 0:
 
-                callback.on_rollout_end()
+                # callback.on_rollout_end()
 
                 for i in range(self.num_agents): # MA-MOD
                     # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
@@ -315,7 +315,7 @@ class MADQN(OffPolicyRLModel):
                     assert isinstance(self.replay_buffer, PrioritizedReplayBuffer)
                     self.replay_buffer.update_priorities(batch_idxes, new_priorities)
 
-                callback.on_rollout_start()
+                # callback.on_rollout_start()
 
             if can_sample and self.num_timesteps > self.learning_starts and \
                     self.num_timesteps % self.target_network_update_freq == 0:

@@ -27,7 +27,7 @@ BASE_ARGS = {
 }
 
 ENV_ARGS = {
-    
+    'num_agents' : int,    
 }
 
 ENV_WRAPPER_ARGS = {

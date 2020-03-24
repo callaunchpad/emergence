@@ -17,10 +17,10 @@ class Pong(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['console']}
 
-    def __init__(self):
+    def __init__(self, num_agents=1):
         super(Pong, self).__init__()
         self.viewer = None
-        self.numAgents = 1
+        self.numAgents = num_agents
         self.screenWidth = 400
         self.screenHeight = 600
         self.ballHeight = 5
