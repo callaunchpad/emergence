@@ -133,7 +133,7 @@ class MADQN(OffPolicyRLModel):
                 self.sess = tf_util.make_session(num_cpu=self.n_cpu_tf_sess, graph=self.graph)
 
                 optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-
+                print("AC SPC", self.action_space)
                 for i in range(self.num_agents):
                     act, _train_step, update_target, step_model = build_train(
                         q_func=partial(self.policy, **self.policy_kwargs),
@@ -244,14 +244,20 @@ class MADQN(OffPolicyRLModel):
             self.num_timesteps += 1
 
             # Stop training if return value is False
-            if callback.on_step() is False:
-                break
+            # if callback.on_step() is False:
+            #    break
 
             # Store transition in the replay buffer.
             # Loop for replay buffer -- either separate or joined. obs[agent_index], action[agent_index], reward[agent_index]
             # Joey: Does this look right to you?
+            # print(obs, action, rew, new_obs, done)
+            #print("obs",obs[0])
+            #print(action)
+            #print("ac", action[0])
+            #print("rew", rew[0])
+            #print("done", done[0])
             for num_agent in range(self.num_agents):
-                self.replay_buffer.add(obs[num_agent], action[num_agent], rew[num_agent], new_obs[num_agent], float(done))
+                self.replay_buffer.add(obs[num_agent], env_action[num_agent], rew[num_agent], new_obs[num_agent], float(done[num_agent]))
             obs = new_obs
 
             # if writer is not None:
