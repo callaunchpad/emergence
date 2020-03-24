@@ -8,14 +8,10 @@ import tensorflow as tf
 
 from stable_baselines import logger
 from stable_baselines.common import explained_variance, ActorCriticRLModel, tf_util, SetVerbosity, TensorboardWriter
-from stable_baselines.common.runners import AbstractEnvRunner
+from stable_baselines.common.runners import AbstractEnvRunner # look at this and may need to modify
 from stable_baselines.common.policies import ActorCriticPolicy, RecurrentActorCriticPolicy
 from stable_baselines.a2c.utils import total_episode_reward_logger
 
-<<<<<<< HEAD
-
-=======
->>>>>>> c5b40b7ae88b17a3b7a196d16c194c5d86e07d24
 class MAPPO2(ActorCriticRLModel):
     """
     Proximal Policy Optimization algorithm (GPU version).

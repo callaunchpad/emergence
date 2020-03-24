@@ -377,12 +377,12 @@ class SingleSnek(gym.Env):
             self.renderer = None
 
 # test moving randomly and rendering images
-# if __name__ == "__main__":
-#     env = SingleSnek()
-#     obs = env.reset()
-#     for i in range(1000):
-#         env.render(mode='human')
-#         action = env.action_space.sample()
-#         obs, reward, done, _ = env.step(action)
-#         if done:
-#             obs = env.reset()
+if __name__ == "__main__":
+    env = SingleSnek()
+    obs = env.reset()
+    for i in range(10000):
+        env.render(mode='human')
+        action = env.action_space.sample()
+        obs, reward, done, _ = env.step(action)
+        if done:
+            obs = env.reset()
