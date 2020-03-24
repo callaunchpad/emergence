@@ -30,19 +30,36 @@ class Pong(gym.Env):
         self.n_actions = 5
         self.paddleSpeed = 10
         self.maxscore = 10
+        self.observation_space = []
         self.reward = np.zeros(2)
-        self.info = None
+        self.info = {}
         self.done = False
         self.action_space = spaces.Discrete(self.n_actions)
         self.observation_space = spaces.Box(low = 0, high = 255, shape = (12,), dtype=np.uint8)
+
+    def generateObs(self, ballPos, paddle0Pos, paddle1Pos, ballVel, paddle0Vel, paddle1Vel):
+        obs0 = np.array([ballPos, paddle0Pos, paddle1Pos, ballVel, paddle0Vel, paddle1Vel]).flatten()
+
+        ballPos[0] = self.screenWidth - ballPos[0]
+        ballVel[0] = self.screenWidth - ballVel[0]
+        paddle0Pos[0] = self.screenWidth - paddle0Pos[0]
+        paddle1Pos[0] = self.screenWidth - paddle1Pos[0]
+        paddle0Vel[0] = self.screenWidth - paddle0Vel[0]
+        paddle1Vel[0] = self.screenWidth - paddle1Vel[0]
+
+        obs1 = np.array([ballPos, paddle0Pos, paddle1Pos, ballVel, paddle0Vel, paddle1Vel]).flatten()
+        return np.array([obs0, obs1])
 
     def reset(self):
         self.ball = PongObject([self.screenWidth/2, self.screenHeight/2], [random.choice([1, -1]), 0])
         self.paddle0 = PongObject([self.paddleWidth, self.screenHeight/2], [0,0])
         self.paddle1 = PongObject([self.screenWidth - self.paddleWidth, self.screenHeight/2], [0,0])
-        return np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten(), \
-            np.array([self.ball.pos, self.paddle1.pos, self.paddle0.pos, self.ball.vel, self.paddle1.vel, self.paddle0.vel]).flatten()
-        
+        if (self.numAgents == 2):
+            self.observation = self.generateObs(self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel)
+        elif (self.numAgents == 1):
+            self.observation = np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten()
+        return self.observation
+
     def step(self, action):
         # Update velocities
         if (self.numAgents == 2): 
@@ -90,7 +107,7 @@ class Pong(gym.Env):
             self.ball.vel[1] *= -1
 
         # Player 1 scores a goal
-        if (self.ball.pos[0] < 0): 
+        if (self.ball.pos[0] < 0):
             self.reward[1] += 1
             self.reward[0] -= 1
             self.paddle1.score += 1
@@ -99,60 +116,60 @@ class Pong(gym.Env):
             self.reward[1] += 1
             self.reward[0] -= 1
             self.paddle0.score += 1
-        
+
         # If any player scores above maxscore, the game ends
         if (self.paddle1.score >= self.maxscore or self.paddle0.score >= self.maxscore):
-            self.done = True
+            self.done = np.array([True, True])
         else:
-            self.done = False
-        self.info = np.array([meetpaddle0, meetpaddle1])
-        
-        return np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten(), 
-        np.array([self.ball.pos, self.paddle1.pos, self.paddle0.pos, self.ball.vel, self.paddle1.vel, self.paddle0.vel]).flatten(), 
-        self.reward[0], self.reward[1], np.array(self.done, self.done), self.info[0], self.info[1]
-        #info should be a dictionary
-        #flip x coordinate of second returned observation and concatenate it with first observation
-        #same with reward and done
-        
-	def render(self, mode='human'):
-		WHITE = (255,255,255)
-		RED = (255, 0, 0)
-		GREEN = (0, 255, 0)
+            self.done = np.array([False, False])
 
+        if (self.numAgents == 2):
+            self.observation = self.generateObs(self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel)
+            return self.observation, self.reward, self.done, self.info
+        elif (self.numAgents == 1):
+            self.observation = np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten()
+            return self.observation, self.reward[0], self.done[0], self.info
 
-        self.canvas = pygame.Surface((screenWidth, screenHeight))
+    def render(self, mode='human'):
+        # Not sure if this works
+        WHITE = (255,255,255)
+        RED = (255, 0, 0)
+        GREEN = (0, 255, 0)
+        BLACK = (0, 0, 0)
+
+        self.canvas = pygame.Surface((self.screenWidth, self.screenHeight))
         self.screen = sarray.array3d(self.canvas)
 
 		#set up canvas
         self.canvas.fill(BLACK)
-		pygame.draw.line(self.canvas, WHITE, [self.screenWidth / 2, 0],[self.screenWidth / 2, self.screenHeight], 1)
-		pygame.draw.line(self.canvas, WHITE, [self.paddleWidth, 0],[self.paddleWidth, self.screenheight], 1)
-		pygame.draw.line(self.canvas, WHITE, [self.screenWidth - self.paddleWidth, 0],[self.screenWidth - self.paddleWidth, self.screenHeight], 1)
-		pygame.draw.circle(self.canvas, WHITE, [self.screenWidth//2, self.screenHeight//2], 70, 1)
+        pygame.draw.line(self.canvas, WHITE, [self.screenWidth / 2, 0],[self.screenWidth / 2, self.screenHeight], 1)
+        pygame.draw.line(self.canvas, WHITE, [self.paddleWidth, 0],[self.paddleWidth, self.screenheight], 1)
+        pygame.draw.line(self.canvas, WHITE, [self.screenWidth - self.paddleWidth, 0],[self.screenWidth - self.paddleWidth, self.screenHeight], 1)
+        pygame.draw.circle(self.canvas, WHITE, [self.screenWidth//2, self.screenHeight//2], 70, 1)
 
 		#draw paddles and ball
-		pygame.draw.circle(self.canvas, RED, [*map(int,self.ball.pos)], (self.ballHeight / 2), 0)
-		pygame.draw.polygon(self.canvas, GREEN, [[self.paddle1.pos[0] - (self.paddleWidth / 2), self.paddle1.pos[1] - (self.paddleHeight / 2)], 
+        pygame.draw.circle(self.canvas, RED, [*map(int,self.ball.pos)], (self.ballHeight / 2), 0)
+        pygame.draw.polygon(self.canvas, GREEN, [[self.paddle1.pos[0] - (self.paddleWidth / 2), self.paddle1.pos[1] - (self.paddleHeight / 2)], 
 												[self.paddle1.pos[0] - (self.paddleWidth / 2), self.paddle1.pos[1] + (self.paddleHeight / 2)], 
 												[self.paddle1.pos[0] + (self.paddleWidth / 2), self.paddle1.pos[1] + (self.paddleHeight / 2)], 
 												[self.paddle1.pos[0] + (self.paddleWidth / 2), self.paddle1.pos[1] - (self.paddleHeight / 2)]], 0)
-		pygame.draw.polygon(self.canvas, GREEN, [[self.paddle2.pos[0] - (self.paddleWidth / 2), self.paddle2.pos[1] - (self.paddleHeight / 2)], 
+        pygame.draw.polygon(self.canvas, GREEN, [[self.paddle2.pos[0] - (self.paddleWidth / 2), self.paddle2.pos[1] - (self.paddleHeight / 2)], 
 												[self.paddle2.pos[0] - (self.paddleWidth / 2), self.paddle2.pos[1] + (self.paddleHeight / 2)], 
 												[self.paddle2.pos[0] + (self.paddleWidth / 2), self.paddle2.pos[1] + (self.paddleHeight / 2)], 
 												[self.paddle2.pos[0] + (self.paddleWidth / 2), self.paddle2.pos[1] - (self.paddleHeight / 2)]], 0)
 
-		if close:
-			if self.viewer is not None:
-				self.viewer.close()
-				self.viewer = None
-			return
-		if mode == 'rgb_array':
-			return self.screen
-		elif mode == 'human':
-			from gym.envs.classic_control import rendering
-			if self.viewer is None:
-				self.viewer = rendering.SimpleImageViewer()
-			self.viewer.imshow(self.screen)
+        if close:
+            if self.viewer is not None:
+                self.viewer.close()
+                self.viewer = None
+            return
+        if mode == 'rgb_array':
+            return self.screen
+        elif mode == 'human':
+            from gym.envs.classic_control import rendering
+            if self.viewer is None:
+                self.viewer = rendering.SimpleImageViewer()
+                self.viewer.imshow(self.screen)
 
     def close (self):
         #TODO
