@@ -333,6 +333,16 @@ class MultiSneks(gym.Env):
         self.alive = [not done for done in dones]
         return self._get_state(), rewards, dones, {}
 
+    # def flip(a, b, c):
+    #     ret = []
+    #     for i in range(len(a)):
+    #         temp = []
+    #         temp.append(a[i])
+    #         temp.append(b[i])
+    #         temp.append(c[i])
+    #         ret.append(temp)
+    #     return ret
+
     def reset(self):
         # Reset step counters
         self.current_step = 0
@@ -354,7 +364,38 @@ class MultiSneks(gym.Env):
             s = np.transpose(s, [1, 2, 0])
             return s
         else:
-            return _state
+            return self.convert(_state)
+
+    # def get_multi_state(self):
+    #     _state = self.world.get_observation()
+    #     if self.obs_type == 'rgb':
+    #         return self.RGBify.get_image(_state)
+    #     elif self.obs_type == 'layered':
+    #         s = np.array([(_state == self.world.FOOD).astype(int), ((_state == self.world.sneks[0].snek_id) or (_state == self.world.sneks[0].snek_id+1)).astype(int)])
+    #         s = np.transpose(s, [1, 2, 0])
+    #         return s
+    #     else:
+    #         return self.convert(_state)
+    
+    def convert(self, state):
+        allsneks = []
+        #allsneks.append(state)
+        state = self.world.get_observation()
+        allsneks.append(state)
+        for i in range(1, self.N_SNEKS):
+            temp_2d = []
+            for row in state:
+                temp_row = []
+                for col in row:
+                    if col >= 100:
+                        col -= (100 + 2 * i)
+                        col %= (self.N_SNEKS * 2) 
+                        col += 100 
+                    temp_row.append(col)
+                temp_2d.append(temp_row)
+            allsneks.append(temp_2d)
+        return allsneks
+
 
     def render(self, mode='human', close=False):
         if not close:
@@ -368,13 +409,16 @@ class MultiSneks(gym.Env):
             self.renderer.close()
             self.renderer = None
 
+import time
 
 if __name__ == "__main__":
     env = MultiSneks()
     obs = env.reset()
     for i in range(1000):
+        time.sleep(1)
         env.render(mode='human')
         action = env.action_space.sample()
-        obs, reward, done, _ = env.step(action)
+        obs, reward, done, _ = env.step([action])
+        print(env.convert(env._get_state))
         if done:
             obs = env.reset()

@@ -84,6 +84,7 @@ def train(params, model=None, env=None):
     if env is None:  
         def make_env(i):
             env = get_env(params)
+            # TODO: make monitor work for multiple agent.
             env = Monitor(env, data_dir + '/' + str(i), allow_early_resets=params['early_reset'])
             return env
 
