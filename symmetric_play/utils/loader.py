@@ -67,7 +67,7 @@ class ModelParams(dict):
 def get_alg(params: ModelParams):
     alg_name = params['alg']
     try:
-        alg = vars(symmetric_play)[alg_name]
+        alg = vars(symmetric_play.algs)[alg_name]
     except:
         alg = vars(stable_baselines)[alg_name]
     return alg
@@ -95,13 +95,13 @@ def get_policy(params: ModelParams):
         return policy
     except:
         alg_name = params['alg']
-        if alg_name == 'SAC':
+        if 'SAC' in alg_name:
             search_location = stable_baselines.sac.policies
-        elif alg_name == 'DDPG':
+        elif 'DDPG' in alg_name:
             search_location = stable_baselines.ddpg.policies
-        elif alg_name == 'DQN':
+        elif 'DQN' in alg_name:
             search_location = stable_baselines.deepq.policies
-        elif alg_name == 'TD3':
+        elif 'TD3' in alg_name:
             search_location = stable_baselines.td3.policies
         else:
             search_location = stable_baselines.common.policies

@@ -8,8 +8,8 @@ from stable_baselines import logger
 from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity
 from stable_baselines.common.vec_env import VecEnv
 from stable_baselines.common.schedules import LinearSchedule
-from stable_baselines.common.buffers import ReplayBuffer, PrioritizedReplayBuffer
 from stable_baselines.deepq.build_graph import build_train
+from stable_baselines.deepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from stable_baselines.deepq.policies import DQNPolicy
 
 
@@ -54,8 +54,6 @@ class MADQN(OffPolicyRLModel):
     :param n_cpu_tf_sess: (int) The number of threads for TensorFlow operations
         If None, the number of cpu of the current machine will be used.
     """
-    def get_nth_agent_action_space(self, action_space, n):
-        return action_space[n] # TODO Is this the right way to get the n-th agent action space?
 
     def __init__(self, policy, env, gamma=0.99, learning_rate=5e-4, buffer_size=50000, exploration_fraction=0.1,
                  exploration_final_eps=0.02, exploration_initial_eps=1.0, train_freq=1, batch_size=32, double_q=True,
@@ -116,7 +114,7 @@ class MADQN(OffPolicyRLModel):
 
         with SetVerbosity(self.verbose):
             for i in range(self.num_agents):
-                assert not isinstance(self.get_nth_agent_action_space(self.action_space, i), gym.spaces.Box), \
+                assert not isinstance(self.action_space, gym.spaces.Box), \
                     "Error: DQN cannot output a gym.spaces.Box action space."
 
             # If the policy is wrap in functool.partial (e.g. to disable dueling)
@@ -125,6 +123,7 @@ class MADQN(OffPolicyRLModel):
                 test_policy = self.policy.func
             else:
                 test_policy = self.policy
+            print(test_policy.type)
             assert issubclass(test_policy, DQNPolicy), "Error: the input policy for the DQN model must be " \
                                                        "an instance of DQNPolicy."
 
@@ -139,7 +138,7 @@ class MADQN(OffPolicyRLModel):
                     act, _train_step, update_target, step_model = build_train(
                         q_func=partial(self.policy, **self.policy_kwargs),
                         ob_space=self.observation_space,
-                        ac_space=self.get_nth_agent_action_space(self.action_space, i),
+                        ac_space=self.action_space,
                         optimizer=optimizer,
                         gamma=self.gamma,
                         grad_norm_clipping=10,
@@ -357,9 +356,12 @@ class MADQN(OffPolicyRLModel):
 
         return actions, None
 
-    '''
+
     # No one ever calls this, so we don't need it?
     def action_probability(self, observation, state=None, mask=None, actions=None, logp=False):
+        print("Should not be called")
+        return None
+        '''
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
@@ -383,7 +385,7 @@ class MADQN(OffPolicyRLModel):
             actions_proba = actions_proba[0]
 
         return actions_proba
-    '''
+        '''
 
     def get_parameter_list(self):
         return self.params
