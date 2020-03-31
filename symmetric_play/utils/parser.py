@@ -81,4 +81,8 @@ def args_to_params(args):
                 params['policy_args'][arg_name] = arg.value
             else:
                 raise ValueError("Provided argument does not fit into categories")
+    if not args.num_agents is None and args.num_agents > 1:
+        params['alg_args']['num_agents'] = args.num_agents
+    
+    
     return params
