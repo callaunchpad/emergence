@@ -200,7 +200,7 @@ class MADQN(OffPolicyRLModel):
                                             initial_p=self.exploration_initial_eps,
                                             final_p=self.exploration_final_eps)
 
-        episode_rewards = [0.0]
+        episode_rewards = [[0.0]*self.num_agents] #MA-MOD
         episode_successes = []
 
         #callback.on_training_start(locals(), globals())
@@ -266,15 +266,18 @@ class MADQN(OffPolicyRLModel):
             #     tf_util.total_episode_reward_logger(self.episode_reward, ep_rew, ep_done, writer,
             #                                         self.num_timesteps)
 
-            episode_rewards[-1] += rew
-            if done:
-                maybe_is_success = info.get('is_success')
-                if maybe_is_success is not None:
-                    episode_successes.append(float(maybe_is_success))
-                if not isinstance(self.env, VecEnv):
-                    obs = self.env.reset()
-                episode_rewards.append(0.0)
-                reset = True
+            # TODO: current episode_rewards is a list, make it a list of lists where each list is the reward for each agent in all timesteps
+            #     append the newest reward to the end of each list for each agent
+            for num_agent in range(self.num_agents): #MA-MOD
+                episode_rewards[num_agent][-1] += rew[num_agent]
+                if done:
+                    maybe_is_success = info.get('is_success')
+                    if maybe_is_success is not None:
+                        episode_successes.append(float(maybe_is_success))
+                    if not isinstance(self.env, VecEnv):
+                        obs = self.env.reset()
+                    episode_rewards[num_agent].append(0.0)
+                    reset = True
 
             # Do not train if the warmup phase is not over
             # or if there are not enough samples in the replay buffer
@@ -329,14 +332,14 @@ class MADQN(OffPolicyRLModel):
                 for i in range(self.num_agents):
                     self.update_target[i](sess=self.sess) # MA-MOD
 
-            if len(episode_rewards[-101:-1]) == 0:
+            if len(episode_rewards[0][-101:-1]) == 0: # MA-MOD
                 mean_100ep_reward = -np.inf
             else:
-                mean_100ep_reward = round(float(np.mean(episode_rewards[-101:-1])), 1)
+                mean_100ep_reward = round(float(np.mean(episode_rewards[0][-101:-1])), 1) #MA-MOD
 
             # below is what's logged in terminal.
-            num_episodes = len(episode_rewards)
-            if self.verbose >= 1 and done and log_interval is not None and len(episode_rewards) % log_interval == 0:
+            num_episodes = len(episode_rewards[0]) #MA-MOD
+            if self.verbose >= 1 and done and log_interval is not None and len(episode_rewards[0]) % log_interval == 0: #MA-MOD
                 logger.record_tabular("steps", self.num_timesteps)
                 logger.record_tabular("episodes", num_episodes)
                 if len(episode_successes) > 0:
