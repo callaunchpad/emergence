@@ -191,12 +191,12 @@ class MAPPO2(ActorCriticRLModel):
                                                                         self.clip_range_ph), tf.float32))
                         loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef
 
-                        tf.summary.scalar('entropy_loss', self.entropy)
-                        tf.summary.scalar('policy_gradient_loss', self.pg_loss)
-                        tf.summary.scalar('value_function_loss', self.vf_loss)
-                        tf.summary.scalar('approximate_kullback-leibler', self.approxkl)
-                        tf.summary.scalar('clip_factor', self.clipfrac)
-                        tf.summary.scalar('loss', loss)
+                        # tf.summary.scalar('entropy_loss', self.entropy)
+                        # tf.summary.scalar('policy_gradient_loss', self.pg_loss)
+                        # tf.summary.scalar('value_function_loss', self.vf_loss)
+                        # tf.summary.scalar('approximate_kullback-leibler', self.approxkl)
+                        # tf.summary.scalar('clip_factor', self.clipfrac)
+                        # tf.summary.scalar('loss', loss)
 
                         with tf.variable_scope('model_'+str(i)): #MA-MOD
                             self.params = tf.trainable_variables()
@@ -213,27 +213,27 @@ class MAPPO2(ActorCriticRLModel):
                     self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac']
 
                     with tf.variable_scope("input_info_"+str(i), reuse=False):  #MA-MOD
-                        tf.summary.scalar('discounted_rewards', tf.reduce_mean(self.rewards_ph))
-                        tf.summary.scalar('learning_rate', tf.reduce_mean(self.learning_rate_ph))
-                        tf.summary.scalar('advantage', tf.reduce_mean(self.advs_ph))
-                        tf.summary.scalar('clip_range', tf.reduce_mean(self.clip_range_ph))
-                        if self.clip_range_vf_ph is not None:
-                            tf.summary.scalar('clip_range_vf', tf.reduce_mean(self.clip_range_vf_ph))
+                        # tf.summary.scalar('discounted_rewards', tf.reduce_mean(self.rewards_ph))
+                        # tf.summary.scalar('learning_rate', tf.reduce_mean(self.learning_rate_ph))
+                        # tf.summary.scalar('advantage', tf.reduce_mean(self.advs_ph))
+                        # tf.summary.scalar('clip_range', tf.reduce_mean(self.clip_range_ph))
+                        # if self.clip_range_vf_ph is not None:
+                        #     tf.summary.scalar('clip_range_vf', tf.reduce_mean(self.clip_range_vf_ph))
 
-                        tf.summary.scalar('old_neglog_action_probability', tf.reduce_mean(self.old_neglog_pac_ph))
-                        tf.summary.scalar('old_value_pred', tf.reduce_mean(self.old_vpred_ph))
+                        # tf.summary.scalar('old_neglog_action_probability', tf.reduce_mean(self.old_neglog_pac_ph))
+                        # tf.summary.scalar('old_value_pred', tf.reduce_mean(self.old_vpred_ph))
 
-                        if self.full_tensorboard_log:
-                            tf.summary.histogram('discounted_rewards', self.rewards_ph)
-                            tf.summary.histogram('learning_rate', self.learning_rate_ph)
-                            tf.summary.histogram('advantage', self.advs_ph)
-                            tf.summary.histogram('clip_range', self.clip_range_ph)
-                            tf.summary.histogram('old_neglog_action_probability', self.old_neglog_pac_ph)
-                            tf.summary.histogram('old_value_pred', self.old_vpred_ph)
-                            if tf_util.is_image(self.observation_space):
-                                tf.summary.image('observation', train_model.obs_ph)
-                            else:
-                                tf.summary.histogram('observation', train_model.obs_ph)
+                        # if self.full_tensorboard_log:
+                        #     tf.summary.histogram('discounted_rewards', self.rewards_ph)
+                        #     tf.summary.histogram('learning_rate', self.learning_rate_ph)
+                        #     tf.summary.histogram('advantage', self.advs_ph)
+                        #     tf.summary.histogram('clip_range', self.clip_range_ph)
+                        #     tf.summary.histogram('old_neglog_action_probability', self.old_neglog_pac_ph)
+                        #     tf.summary.histogram('old_value_pred', self.old_vpred_ph)
+                        #     if tf_util.is_image(self.observation_space):
+                        #         tf.summary.image('observation', train_model.obs_ph)
+                        #     else:
+                        #         tf.summary.histogram('observation', train_model.obs_ph)
 
                     self.train_model.append(train_model)               #MA-MOD
                     self.act_model.append(act_model)                   #MA-MOD
@@ -244,7 +244,7 @@ class MAPPO2(ActorCriticRLModel):
 
                 tf.global_variables_initializer().run(session=self.sess)  # pylint: disable=E1101
 
-                self.summary = tf.summary.merge_all()
+                #self.summary = tf.summary.merge_all()
 
     def _train_step(self, learning_rate, cliprange, obs, returns, masks, actions, values, neglogpacs, update, agent #MA-MOD
                     writer, states=None, cliprange_vf=None):

@@ -409,16 +409,16 @@ class MultiSneks(gym.Env):
             self.renderer.close()
             self.renderer = None
 
-import time
+# import time
 
-if __name__ == "__main__":
-    env = MultiSneks()
-    obs = env.reset()
-    for i in range(1000):
-        time.sleep(1)
-        env.render(mode='human')
-        action = env.action_space.sample()
-        obs, reward, done, _ = env.step([action])
-        print(env.convert(env._get_state))
-        if done:
-            obs = env.reset()
+# if __name__ == "__main__":
+#     env = MultiSneks()
+#     obs = env.reset()
+#     for i in range(1000):
+#         time.sleep(1)
+#         env.render(mode='human')
+#         action = env.action_space.sample()
+#         obs, reward, done, _ = env.step([action])
+#         print(env.convert(env._get_state))
+#         if done:
+#             obs = env.reset()
