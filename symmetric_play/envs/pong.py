@@ -58,6 +58,7 @@ class Pong(gym.Env):
             self.observation = self.generateObs(self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel)
         elif (self.numAgents == 1):
             self.observation = np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten()
+            self.observation = np.expand_dims(self.observation, axis=0)
         return self.observation
 
     def step(self, action):
@@ -129,6 +130,7 @@ class Pong(gym.Env):
             return self.observation, self.reward, self.done, self.info
         elif (self.numAgents == 1):
             self.observation = np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten()
+            self.observation = np.expand_dims(self.observation, axis=0)
             return self.observation, self.reward[0], self.done[0], self.info
 
     def render(self, mode='human'):
