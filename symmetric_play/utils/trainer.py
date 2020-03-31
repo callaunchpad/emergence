@@ -84,11 +84,14 @@ def train(params, model=None, env=None):
     if env is None:  
         def make_env(i):
             env = get_env(params)
+            print("ENV IN UTIL" ,env)
             # TODO: make monitor work for multiple agent.
-            env = Monitor(env, data_dir + '/' + str(i), allow_early_resets=params['early_reset'])
+            # env = Monitor(env, data_dir + '/' + str(i), allow_early_resets=params['early_reset'])
             return env
 
-        env = DummyVecEnv([(lambda n: lambda: make_env(n))(i) for i in range(params['num_proc'])])
+        # env = DummyVecEnv([(lambda n: lambda: make_env(n))(i) for i in range(params['num_proc'])])
+        env = make_env(0)
+
 
         if params['normalize']:
             env = VecNormalize(env)
@@ -102,7 +105,9 @@ def train(params, model=None, env=None):
         from stable_baselines.ddpg import OrnsteinUhlenbeckActionNoise
         n_actions = env.action_space.shape[-1]
         params['alg_args']['action_noise'] = OrnsteinUhlenbeckActionNoise(mean=np.zeros(n_actions), sigma=float(params['noise'])*np.ones(n_actions))
-    
+  
+
+    print("ENV", env, env.action_space)
     if model is None:
         alg = get_alg(params)
         policy = get_policy(params)

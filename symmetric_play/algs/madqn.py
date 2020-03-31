@@ -8,7 +8,7 @@ from stable_baselines import logger
 from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity
 from stable_baselines.common.vec_env import VecEnv
 from stable_baselines.common.schedules import LinearSchedule
-from stable_baselines.deepq.build_graph import build_train
+from .deepq.build_graph import build_train
 from stable_baselines.deepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from stable_baselines.deepq.policies import DQNPolicy
 
@@ -67,7 +67,7 @@ class MADQN(OffPolicyRLModel):
         # TODO: replay_buffer refactoring
         super(MADQN, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
                                   requires_vec_env=False, policy_kwargs=policy_kwargs, seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
-
+        # print("POLICY TYPE", policy)
         self.param_noise = param_noise
         self.learning_starts = learning_starts
         self.train_freq = train_freq
@@ -107,6 +107,7 @@ class MADQN(OffPolicyRLModel):
             self.setup_model()
 
     def _get_pretrain_placeholders(self):
+        assert False, "MAKE SURE THIS FUNCTION ISNT CALLED"
         policy = self.step_model
         return policy.obs_ph, tf.placeholder(tf.int32, [None]), policy.q_values
 
@@ -123,7 +124,7 @@ class MADQN(OffPolicyRLModel):
                 test_policy = self.policy.func
             else:
                 test_policy = self.policy
-            print(test_policy.type)
+            # print(test_policy.type)
             assert issubclass(test_policy, DQNPolicy), "Error: the input policy for the DQN model must be " \
                                                        "an instance of DQNPolicy."
 
@@ -131,27 +132,29 @@ class MADQN(OffPolicyRLModel):
             with self.graph.as_default():
                 self.set_random_seed(self.seed)
                 self.sess = tf_util.make_session(num_cpu=self.n_cpu_tf_sess, graph=self.graph)
-
-                optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-
+                
+                print("AC SPC", self.action_space)
                 for i in range(self.num_agents):
-                    act, _train_step, update_target, step_model = build_train(
-                        q_func=partial(self.policy, **self.policy_kwargs),
-                        ob_space=self.observation_space,
-                        ac_space=self.action_space,
-                        optimizer=optimizer,
-                        gamma=self.gamma,
-                        grad_norm_clipping=10,
-                        param_noise=self.param_noise,
-                        sess=self.sess,
-                        full_tensorboard_log=self.full_tensorboard_log,
-                        double_q=self.double_q
-                    )
-                    self.act.append(act)
-                    self._train_step.append(_train_step)
-                    self.step_model.append(step_model)
-                    self.proba_step.append(self.step_model[-1].proba_step)
-                    self.update_target.append(update_target)
+                    with tf.variable_scope("agent"+str(i)):
+                        optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
+                        act, _train_step, update_target, step_model = build_train(
+                            q_func=partial(self.policy, **self.policy_kwargs),
+                            ob_space=self.observation_space,
+                            ac_space=self.action_space,
+                            optimizer=optimizer,
+                            gamma=self.gamma,
+                            grad_norm_clipping=10,
+                            param_noise=self.param_noise,
+                            sess=self.sess,
+                            full_tensorboard_log=False, #self.full_tensorboard_log,
+                            double_q=self.double_q
+                        )
+                        self.act.append(act)
+                        self._train_step.append(_train_step)
+                        self.step_model.append(step_model)
+                        self.proba_step.append(step_model.proba_step)
+                        self.update_target.append(update_target)
+                
                 self.params = tf_util.get_trainable_vars("deepq") # TODO: Joey: does this need to be separate for each agent?
                                                                   # Answer: yes and no. It really depends.
                                                                   # if you don't seperate them, when you save the model, both agent policies will be in the same file
@@ -164,13 +167,13 @@ class MADQN(OffPolicyRLModel):
                 for i in range(self.num_agents):
                     self.update_target[i](sess=self.sess) # TODO: Not sure, seems like the best thing to do is try using each agents own target first.
 
-                self.summary = tf.summary.merge_all()
+                # self.summary = tf.summary.merge_all()
 
     def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name="DQN",
               reset_num_timesteps=True, replay_wrapper=None):
 
         new_tb_log = self._init_num_timesteps(reset_num_timesteps)
-        callback = self._init_callback(callback)
+        # callback = self._init_callback(callback)
 
         # with SetVerbosity(self.verbose), TensorboardWriter(self.graph, self.tensorboard_log, tb_log_name, new_tb_log) \
         #         as writer:
@@ -200,11 +203,11 @@ class MADQN(OffPolicyRLModel):
                                             initial_p=self.exploration_initial_eps,
                                             final_p=self.exploration_final_eps)
 
-        episode_rewards = [0.0]
+        episode_rewards = [[0.0]*self.num_agents] #MA-MOD
         episode_successes = []
 
-        callback.on_training_start(locals(), globals())
-        callback.on_rollout_start()
+        #callback.on_training_start(locals(), globals())
+        #callback.on_rollout_start()
 
         reset = True
         obs = self.env.reset()
@@ -227,6 +230,7 @@ class MADQN(OffPolicyRLModel):
                 kwargs['reset'] = reset
                 kwargs['update_param_noise_threshold'] = update_param_noise_threshold
                 kwargs['update_param_noise_scale'] = True
+
             with self.sess.as_default():
                 env_action = [] # MA-MOD
                 for i in range(self.num_agents): # MA-MOD. This is fine for one policy.
@@ -244,14 +248,20 @@ class MADQN(OffPolicyRLModel):
             self.num_timesteps += 1
 
             # Stop training if return value is False
-            if callback.on_step() is False:
-                break
+            # if callback.on_step() is False:
+            #    break
 
             # Store transition in the replay buffer.
             # Loop for replay buffer -- either separate or joined. obs[agent_index], action[agent_index], reward[agent_index]
             # Joey: Does this look right to you?
+            # print(obs, action, rew, new_obs, done)
+            #print("obs",obs[0])
+            #print(action)
+            #print("ac", action[0])
+            #print("rew", rew[0])
+            #print("done", done[0])
             for num_agent in range(self.num_agents):
-                self.replay_buffer.add(obs[num_agent], action[num_agent], rew[num_agent], new_obs[num_agent], float(done))
+                self.replay_buffer.add(obs[num_agent], env_action[num_agent], rew[num_agent], new_obs[num_agent], float(done[num_agent]))
             obs = new_obs
 
             # if writer is not None:
@@ -260,23 +270,26 @@ class MADQN(OffPolicyRLModel):
             #     tf_util.total_episode_reward_logger(self.episode_reward, ep_rew, ep_done, writer,
             #                                         self.num_timesteps)
 
-            episode_rewards[-1] += rew
-            if done:
-                maybe_is_success = info.get('is_success')
-                if maybe_is_success is not None:
-                    episode_successes.append(float(maybe_is_success))
-                if not isinstance(self.env, VecEnv):
-                    obs = self.env.reset()
-                episode_rewards.append(0.0)
-                reset = True
-
+            # TODO: current episode_rewards is a list, make it a list of lists where each list is the reward for each agent in all timesteps
+            #     append the newest reward to the end of each list for each agent
+            for num_agent in range(self.num_agents): #MA-MOD
+                episode_rewards[-1][num_agent] += rew[num_agent]
+                if done.any():
+                    maybe_is_success = info.get('is_success')
+                    if maybe_is_success is not None:
+                        episode_successes.append(float(maybe_is_success))
+                    if not isinstance(self.env, VecEnv):
+                        obs = self.env.reset()
+                    episode_rewards.append([0.0] * self.num_agents)
+                    reset = True
+            
             # Do not train if the warmup phase is not over
             # or if there are not enough samples in the replay buffer
             can_sample = self.replay_buffer.can_sample(self.batch_size)
             if can_sample and self.num_timesteps > self.learning_starts \
                     and self.num_timesteps % self.train_freq == 0:
 
-                callback.on_rollout_end()
+                # callback.on_rollout_end()
 
                 for i in range(self.num_agents): # MA-MOD
                     # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
@@ -307,15 +320,15 @@ class MADQN(OffPolicyRLModel):
                     #                                               dones, weights, sess=self.sess)
                     #     writer.add_summary(summary, self.num_timesteps)
                     # else:
-                    _, td_errors = self._train_step[i](obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
+                    td_errors = self._train_step[i](obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
                                                         sess=self.sess)
-
+                   
                 if self.prioritized_replay: # NOUPDATE - not inside main agent for loop
                     new_priorities = np.abs(td_errors) + self.prioritized_replay_eps # NOUPDATE
                     assert isinstance(self.replay_buffer, PrioritizedReplayBuffer)
                     self.replay_buffer.update_priorities(batch_idxes, new_priorities)
 
-                callback.on_rollout_start()
+                # callback.on_rollout_start()
 
             if can_sample and self.num_timesteps > self.learning_starts and \
                     self.num_timesteps % self.target_network_update_freq == 0:
@@ -323,14 +336,14 @@ class MADQN(OffPolicyRLModel):
                 for i in range(self.num_agents):
                     self.update_target[i](sess=self.sess) # MA-MOD
 
-            if len(episode_rewards[-101:-1]) == 0:
+            if len(episode_rewards[-101:-1]) == 0: # MA-MOD
                 mean_100ep_reward = -np.inf
             else:
-                mean_100ep_reward = round(float(np.mean(episode_rewards[-101:-1])), 1)
+                mean_100ep_reward = round(float(np.mean(episode_rewards[-101:-1])), 1) #MA-MOD
 
             # below is what's logged in terminal.
-            num_episodes = len(episode_rewards)
-            if self.verbose >= 1 and done and log_interval is not None and len(episode_rewards) % log_interval == 0:
+            num_episodes = len(episode_rewards) #MA-MOD
+            if self.verbose >= 1 and done.any() and log_interval is not None and len(episode_rewards) % log_interval == 0: #MA-MOD
                 logger.record_tabular("steps", self.num_timesteps)
                 logger.record_tabular("episodes", num_episodes)
                 if len(episode_successes) > 0:

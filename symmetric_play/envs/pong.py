@@ -17,10 +17,10 @@ class Pong(gym.Env):
     """Custom Environment that follows gym interface"""
     metadata = {'render.modes': ['console']}
 
-    def __init__(self):
+    def __init__(self, num_agents=1):
         super(Pong, self).__init__()
         self.viewer = None
-        self.numAgents = 1
+        self.numAgents = num_agents
         self.screenWidth = 400
         self.screenHeight = 600
         self.ballHeight = 5
@@ -58,10 +58,12 @@ class Pong(gym.Env):
             self.observation = self.generateObs(self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel)
         elif (self.numAgents == 1):
             self.observation = np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten()
+            self.observation = np.expand_dims(self.observation, axis=0)
         return self.observation
 
     def step(self, action):
         # Update velocities
+        print("action", action)
         if (self.numAgents == 2): 
             self.paddle0.vel[1] = self.paddleSpeed*(action[0]-2)
             self.paddle1.vel[1] = self.paddleSpeed*(action[1]-2)
@@ -128,6 +130,7 @@ class Pong(gym.Env):
             return self.observation, self.reward, self.done, self.info
         elif (self.numAgents == 1):
             self.observation = np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten()
+            self.observation = np.expand_dims(self.observation, axis=0)
             return self.observation, self.reward[0], self.done[0], self.info
 
     def render(self, mode='human'):

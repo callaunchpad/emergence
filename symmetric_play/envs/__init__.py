@@ -7,3 +7,4 @@ from .symmetric import Test
 
 from .snek import SingleSnek
 from .sneks import MultiSneks
+from .pong import Pong
