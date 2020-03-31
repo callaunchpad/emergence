@@ -121,6 +121,7 @@ def train(params, model=None, env=None):
     model.learn(total_timesteps=params['timesteps'], log_interval=params['log_interval'], 
                 callback=create_training_callback(data_dir, params, env, freq=params['eval_freq'], checkpoint_freq=params['checkpoint_freq']))
     
+    print("Saving model to", data_dir)
     model.save(data_dir +'/final_model')
 
     if params['normalize']:

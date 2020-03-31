@@ -132,7 +132,8 @@ class MADQN(OffPolicyRLModel):
             with self.graph.as_default():
                 self.set_random_seed(self.seed)
                 self.sess = tf_util.make_session(num_cpu=self.n_cpu_tf_sess, graph=self.graph)
-                
+                self.params = []
+
                 print("AC SPC", self.action_space)
                 for i in range(self.num_agents):
                     with tf.variable_scope("agent"+str(i)):
@@ -154,13 +155,10 @@ class MADQN(OffPolicyRLModel):
                         self.step_model.append(step_model)
                         self.proba_step.append(step_model.proba_step)
                         self.update_target.append(update_target)
+                        self.params.extend(tf_util.get_trainable_vars("agent"+str(i) + "/deepq"))
                 
-                self.params = tf_util.get_trainable_vars("deepq") # TODO: Joey: does this need to be separate for each agent?
-                                                                  # Answer: yes and no. It really depends.
-                                                                  # if you don't seperate them, when you save the model, both agent policies will be in the same file
-                                                                  # If you do seperate them, you can save two different files.
-                                                                  # Your agenet policies is tied to multi-agent alg only.
-                                                                  # Don't worry about this until it becomes a problem.
+
+                print(self.params)
 
                 # Initialize the parameters and copy them to the target network.
                 tf_util.initialize(self.sess) # TODO: copy this file, make two versions of the algorithm.
@@ -353,7 +351,6 @@ class MADQN(OffPolicyRLModel):
                                         int(100 * self.exploration.value(self.num_timesteps)))
                 logger.dump_tabular()
 
-        callback.on_training_end()
         return self
 
     def predict(self, observation, agent_idx, state=None, mask=None, deterministic=True): # MA-MOD - added `agent_idx` as a parameter
@@ -401,6 +398,7 @@ class MADQN(OffPolicyRLModel):
         '''
 
     def get_parameter_list(self):
+        print(self.params)
         return self.params
 
     def save(self, save_path, cloudpickle=False):
@@ -429,9 +427,11 @@ class MADQN(OffPolicyRLModel):
             "n_cpu_tf_sess": self.n_cpu_tf_sess,
             "seed": self.seed,
             "_vectorize_action": self._vectorize_action,
-            "policy_kwargs": self.policy_kwargs
+            "policy_kwargs": self.policy_kwargs,
+            "num_agents" : self.num_agents
         }
 
         params_to_save = self.get_parameters()
+        # print(params_to_save)
 
         self._save_to_file(save_path, data=data, params=params_to_save, cloudpickle=cloudpickle)

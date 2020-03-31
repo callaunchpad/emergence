@@ -63,7 +63,6 @@ class Pong(gym.Env):
 
     def step(self, action):
         # Update velocities
-        print("action", action)
         if (self.numAgents == 2): 
             self.paddle0.vel[1] = self.paddleSpeed*(action[0]-2)
             self.paddle1.vel[1] = self.paddleSpeed*(action[1]-2)
