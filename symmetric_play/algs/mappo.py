@@ -74,13 +74,13 @@ class MAPPO2(ActorCriticRLModel):
 
         self.graph = None
         self.sess = None
-        self.action_ph = None
-        self.advs_ph = None
-        self.rewards_ph = None
-        self.old_neglog_pac_ph = None
-        self.old_vpred_ph = None
-        self.learning_rate_ph = None
-        self.clip_range_ph = None
+        self.action_ph = []
+        self.advs_ph = []
+        self.rewards_ph = []
+        self.old_neglog_pac_ph = []
+        self.old_vpred_ph = []
+        self.learning_rate_ph = []
+        self.clip_range_ph = []
         self.entropy = None
         self.vf_loss = None
         self.pg_loss = None
@@ -89,6 +89,7 @@ class MAPPO2(ActorCriticRLModel):
         self.params = None
         self._train = None
         self.loss_names = None
+        self.num_agents = num_agents
         self.train_model = []   #MA-MOD
         self.act_model = []     #MA-MOD
         self.step = []          #MA-MOD
@@ -102,11 +103,11 @@ class MAPPO2(ActorCriticRLModel):
         if _init_setup_model:
             self.setup_model()
 
-    def _get_pretrain_placeholders(self):
-        policy = self.act_model
+    def _get_pretrain_placeholders(self, agent_idx=0):
+        policy = self.act_model[agent_idx]
         if isinstance(self.action_space, gym.spaces.Discrete):
-            return policy.obs_ph, self.action_ph, policy.policy
-        return policy.obs_ph, self.action_ph, policy.deterministic_action
+            return policy.obs_ph, self.action_ph[agent_idx], policy.policy
+        return policy.obs_ph, self.action_ph[agent_idx], policy.deterministic_action
 
     def setup_model(self):
         with SetVerbosity(self.verbose):
@@ -139,13 +140,13 @@ class MAPPO2(ActorCriticRLModel):
                                                 reuse=True, **self.policy_kwargs)
 
                     with tf.variable_scope("loss_"+str(i), reuse=False):   #MA-MOD
-                        self.action_ph = train_model.pdtype.sample_placeholder([None], name="action_ph")
-                        self.advs_ph = tf.placeholder(tf.float32, [None], name="advs_ph")
-                        self.rewards_ph = tf.placeholder(tf.float32, [None], name="rewards_ph")
-                        self.old_neglog_pac_ph = tf.placeholder(tf.float32, [None], name="old_neglog_pac_ph")
-                        self.old_vpred_ph = tf.placeholder(tf.float32, [None], name="old_vpred_ph")
-                        self.learning_rate_ph = tf.placeholder(tf.float32, [], name="learning_rate_ph")
-                        self.clip_range_ph = tf.placeholder(tf.float32, [], name="clip_range_ph")
+                        self.action_ph.append(train_model.pdtype.sample_placeholder([None], name="action_ph"))
+                        self.advs_ph.append(tf.placeholder(tf.float32, [None], name="advs_ph"))
+                        self.rewards_ph.append(tf.placeholder(tf.float32, [None], name="rewards_ph"))
+                        self.old_neglog_pac_ph.append(tf.placeholder(tf.float32, [None], name="old_neglog_pac_ph"))
+                        self.old_vpred_ph.append(tf.placeholder(tf.float32, [None], name="old_vpred_ph"))
+                        self.learning_rate_ph.append(tf.placeholder(tf.float32, [], name="learning_rate_ph"))
+                        self.clip_range_ph.append(tf.placeholder(tf.float32, [], name="clip_range_ph"))
 
                         neglogpac = train_model.proba_distribution.neglogp(self.action_ph)
                         self.entropy = tf.reduce_mean(train_model.proba_distribution.entropy())
