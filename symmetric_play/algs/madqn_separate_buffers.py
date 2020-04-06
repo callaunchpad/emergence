@@ -96,8 +96,7 @@ class MADQN(OffPolicyRLModel):
         self.update_target = [] # MA-MOD
         self.act = [] # MA-MOD
         self.proba_step = [] # MA-MOD
-        self.replay_buffer = None # TODO: Possibly try seperate replay buffer. If everything symmetric, OK for one.
-                                    # If you have the same Value function, its fine. If you have seperate functions, if you have one replay buffer, they learn from the same data.
+        self.replay_buffer = None
         self.beta_schedule = None
         self.exploration = None
         self.params = None
@@ -180,7 +179,7 @@ class MADQN(OffPolicyRLModel):
 
         # Create the replay buffer
         if self.prioritized_replay:
-            self.replay_buffer = PrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha)
+            self.replay_buffer = [PrioritizedReplayBuffer(self.buffer_size, alpha=self.prioritized_replay_alpha) for _ in range(self.num_agents)] # MA-MOD
             if self.prioritized_replay_beta_iters is None:
                 prioritized_replay_beta_iters = total_timesteps
             else:
@@ -189,12 +188,12 @@ class MADQN(OffPolicyRLModel):
                                                 initial_p=self.prioritized_replay_beta0,
                                                 final_p=1.0)
         else:
-            self.replay_buffer = ReplayBuffer(self.buffer_size)
+            self.replay_buffer = [ReplayBuffer(self.buffer_size) for _ in range(self.num_agents)] # MA-MOD
             self.beta_schedule = None
 
         if replay_wrapper is not None:
             assert not self.prioritized_replay, "Prioritized replay buffer is not supported by HER"
-            self.replay_buffer = replay_wrapper(self.replay_buffer)
+            self.replay_buffer = [replay_wrapper(self.replay_buffer[i]) for i in range(self.num_agents)] # MA-MOD
 
         # Create the schedule for exploration starting from 1.
         self.exploration = LinearSchedule(schedule_timesteps=int(self.exploration_fraction * total_timesteps),
@@ -259,7 +258,7 @@ class MADQN(OffPolicyRLModel):
             #print("rew", rew[0])
             #print("done", done[0])
             for num_agent in range(self.num_agents):
-                self.replay_buffer.add(obs[num_agent], env_action[num_agent], rew[num_agent], new_obs[num_agent], float(done[num_agent]))
+                self.replay_buffer[num_agent].add(obs[num_agent], env_action[num_agent], rew[num_agent], new_obs[num_agent], float(done[num_agent])) # MA-MOD
             obs = new_obs
 
             # if writer is not None:
@@ -283,23 +282,23 @@ class MADQN(OffPolicyRLModel):
 
             # Do not train if the warmup phase is not over
             # or if there are not enough samples in the replay buffer
-            can_sample = self.replay_buffer.can_sample(self.batch_size)
-            if can_sample and self.num_timesteps > self.learning_starts \
-                    and self.num_timesteps % self.train_freq == 0:
+            for i in range(self.num_agents): # MA-MOD
+                can_sample = self.replay_buffer[i].can_sample(self.batch_size)  # MA-MOD
+                if can_sample and self.num_timesteps > self.learning_starts \
+                        and self.num_timesteps % self.train_freq == 0:
 
-                # callback.on_rollout_end()
+                    # callback.on_rollout_end()
 
-                for i in range(self.num_agents): # MA-MOD
                     # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
                     # pytype:disable=bad-unpacking
                     if self.prioritized_replay:
                         assert self.beta_schedule is not None, \
                                 "BUG: should be LinearSchedule when self.prioritized_replay True"
-                        experience = self.replay_buffer.sample(self.batch_size,
-                                                                beta=self.beta_schedule.value(self.num_timesteps))
+                        experience = self.replay_buffer[i].sample(self.batch_size,
+                                                                beta=self.beta_schedule.value(self.num_timesteps))  # MA-MOD
                         (obses_t, actions, rewards, obses_tp1, dones, weights, batch_idxes) = experience
                     else:
-                        obses_t, actions, rewards, obses_tp1, dones = self.replay_buffer.sample(self.batch_size)
+                        obses_t, actions, rewards, obses_tp1, dones = self.replay_buffer[i].sample(self.batch_size)  # MA-MOD
                         weights, batch_idxes = np.ones_like(rewards), None
                     # pytype:enable=bad-unpacking
 
@@ -321,17 +320,16 @@ class MADQN(OffPolicyRLModel):
                     td_errors = self._train_step[i](obses_t, actions, rewards, obses_tp1, obses_tp1, dones, weights,
                                                         sess=self.sess)
 
-                if self.prioritized_replay: # NOUPDATE - not inside main agent for loop
-                    new_priorities = np.abs(td_errors) + self.prioritized_replay_eps # NOUPDATE
-                    assert isinstance(self.replay_buffer, PrioritizedReplayBuffer)
-                    self.replay_buffer.update_priorities(batch_idxes, new_priorities)
+                    if self.prioritized_replay:
+                        new_priorities = np.abs(td_errors) + self.prioritized_replay_eps # NOUPDATE
+                        assert isinstance(self.replay_buffer[i], PrioritizedReplayBuffer) # MA-MOD
+                        self.replay_buffer[i].update_priorities(batch_idxes, new_priorities) # MA-MOD
 
-                # callback.on_rollout_start()
+                    # callback.on_rollout_start()
 
-            if can_sample and self.num_timesteps > self.learning_starts and \
-                    self.num_timesteps % self.target_network_update_freq == 0:
-                # Update target network periodically.
-                for i in range(self.num_agents):
+                if can_sample and self.num_timesteps > self.learning_starts and \
+                        self.num_timesteps % self.target_network_update_freq == 0:
+                    # Update target network periodically.
                     self.update_target[i](sess=self.sess) # MA-MOD
 
             if len(episode_rewards[-101:-1]) == 0: # MA-MOD
