@@ -81,11 +81,12 @@ class MAPPO2(ActorCriticRLModel):
         self.old_vpred_ph = []
         self.learning_rate_ph = []
         self.clip_range_ph = []
-        self.entropy = None
-        self.vf_loss = None
-        self.pg_loss = None
-        self.approxkl = None
-        self.clipfrac = None
+        self.entropy = []
+        self.clip_range_vf_ph = []
+        self.vf_loss = []
+        self.pg_loss = []
+        self.approxkl = []
+        self.clipfrac = []
         self.params = None
         self._train = None
         self.loss_names = None
@@ -148,8 +149,8 @@ class MAPPO2(ActorCriticRLModel):
                         self.learning_rate_ph.append(tf.placeholder(tf.float32, [], name="learning_rate_ph"))
                         self.clip_range_ph.append(tf.placeholder(tf.float32, [], name="clip_range_ph"))
 
-                        neglogpac = train_model.proba_distribution.neglogp(self.action_ph)
-                        self.entropy = tf.reduce_mean(train_model.proba_distribution.entropy())
+                        neglogpac = train_model.proba_distribution.neglogp(self.action_ph[i])  #MA-MOD
+                        self.entropy.append(tf.reduce_mean(train_model.proba_distribution.entropy())) #MA-MOD
 
                         vpred = train_model.value_flat
 
@@ -157,40 +158,40 @@ class MAPPO2(ActorCriticRLModel):
                         if self.cliprange_vf is None:
                             # Default behavior (legacy from OpenAI baselines):
                             # use the same clipping as for the policy
-                            self.clip_range_vf_ph = self.clip_range_ph
+                            self.clip_range_vf_ph.append(self.clip_range_ph[i])
                             self.cliprange_vf = self.cliprange
                         elif isinstance(self.cliprange_vf, (float, int)) and self.cliprange_vf < 0:
                             # Original PPO implementation: no value function clipping
-                            self.clip_range_vf_ph = None
+                            self.clip_range_vf_ph.append(None)
                         else:
                             # Last possible behavior: clipping range
                             # specific to the value function
-                            self.clip_range_vf_ph = tf.placeholder(tf.float32, [], name="clip_range_vf_ph")
+                            self.clip_range_vf_ph.append(tf.placeholder(tf.float32, [], name="clip_range_vf_ph"))
 
-                        if self.clip_range_vf_ph is None:
+                        if self.clip_range_vf_ph[i] is None:
                             # No clipping
                             vpred_clipped = train_model.value_flat
                         else:
                             # Clip the different between old and new value
                             # NOTE: this depends on the reward scaling
-                            vpred_clipped = self.old_vpred_ph + \
-                                tf.clip_by_value(train_model.value_flat - self.old_vpred_ph,
-                                                - self.clip_range_vf_ph, self.clip_range_vf_ph)
+                            vpred_clipped = self.old_vpred_ph[i] + \
+                                tf.clip_by_value(train_model.value_flat - self.old_vpred_ph[i],
+                                                - self.clip_range_vf_ph[i], self.clip_range_vf_ph[i])
 
 
-                        vf_losses1 = tf.square(vpred - self.rewards_ph)
-                        vf_losses2 = tf.square(vpred_clipped - self.rewards_ph)
-                        self.vf_loss = .5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2))
+                        vf_losses1 = tf.square(vpred - self.rewards_ph[i])
+                        vf_losses2 = tf.square(vpred_clipped - self.rewards_ph[i])
+                        self.vf_loss.append(.5 * tf.reduce_mean(tf.maximum(vf_losses1, vf_losses2)))
 
-                        ratio = tf.exp(self.old_neglog_pac_ph - neglogpac)
-                        pg_losses = -self.advs_ph * ratio
-                        pg_losses2 = -self.advs_ph * tf.clip_by_value(ratio, 1.0 - self.clip_range_ph, 1.0 +
-                                                                    self.clip_range_ph)
-                        self.pg_loss = tf.reduce_mean(tf.maximum(pg_losses, pg_losses2))
-                        self.approxkl = .5 * tf.reduce_mean(tf.square(neglogpac - self.old_neglog_pac_ph))
-                        self.clipfrac = tf.reduce_mean(tf.cast(tf.greater(tf.abs(ratio - 1.0),
-                                                                        self.clip_range_ph), tf.float32))
-                        loss = self.pg_loss - self.entropy * self.ent_coef + self.vf_loss * self.vf_coef
+                        ratio = tf.exp(self.old_neglog_pac_ph[i] - neglogpac)
+                        pg_losses = -self.advs_ph[i] * ratio
+                        pg_losses2 = -self.advs_ph[i] * tf.clip_by_value(ratio, 1.0 - self.clip_range_ph[i], 1.0 +
+                                                                    self.clip_range_ph[i])
+                        self.pg_loss.append(tf.reduce_mean(tf.maximum(pg_losses, pg_losses2)))
+                        self.approxkl.append(.5 * tf.reduce_mean(tf.square(neglogpac - self.old_neglog_pac_ph[i])))
+                        self.clipfrac.append(tf.reduce_mean(tf.cast(tf.greater(tf.abs(ratio - 1.0),
+                                                                        self.clip_range_ph[i]), tf.float32)))
+                        loss = self.pg_loss[i] - self.entropy[i] * self.ent_coef + self.vf_loss[i] * self.vf_coef
 
                         # tf.summary.scalar('entropy_loss', self.entropy)
                         # tf.summary.scalar('policy_gradient_loss', self.pg_loss)
@@ -208,7 +209,7 @@ class MAPPO2(ActorCriticRLModel):
                         if self.max_grad_norm is not None:
                             grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
                         grads = list(zip(grads, self.params))
-                    trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph, epsilon=1e-5)
+                    trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph[i], epsilon=1e-5)
                     self._train = trainer.apply_gradients(grads)
 
                     self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac']
@@ -269,16 +270,16 @@ class MAPPO2(ActorCriticRLModel):
         """
         advs = returns - values
         advs = (advs - advs.mean()) / (advs.std() + 1e-8)
-        td_map = {self.train_model[agent].obs_ph: obs, self.action_ph: actions, #MA-MOD
-                  self.advs_ph: advs, self.rewards_ph: returns,
-                  self.learning_rate_ph: learning_rate, self.clip_range_ph: cliprange,
-                  self.old_neglog_pac_ph: neglogpacs, self.old_vpred_ph: values}
+        td_map = {self.train_model[agent].obs_ph: obs, self.action_ph[agent]: actions, #MA-MOD
+                  self.advs_ph[agent]: advs, self.rewards_ph[agent]: returns,
+                  self.learning_rate_ph[agent]: learning_rate, self.clip_range_ph[agent]: cliprange,
+                  self.old_neglog_pac_ph[agent]: neglogpacs, self.old_vpred_ph[agent]: values}
         if states is not None:
             td_map[self.train_model[agent].states_ph] = states #MA-MOD
             td_map[self.train_model[agent].dones_ph] = masks   #MA-MOD
 
         if cliprange_vf is not None and cliprange_vf >= 0:
-            td_map[self.clip_range_vf_ph] = cliprange_vf
+            td_map[self.clip_range_vf_ph[agent]] = cliprange_vf
 
         if states is None:
             update_fac = self.n_batch // self.nminibatches // self.noptepochs + 1
@@ -291,17 +292,17 @@ class MAPPO2(ActorCriticRLModel):
                 run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                 run_metadata = tf.RunMetadata()
                 summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _ = self.sess.run(
-                    [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train],
+                    [self.summary, self.pg_loss[agent], self.vf_loss[agent], self.entropy[agent], self.approxkl[agent], self.clipfrac[agent], self._train],
                     td_map, options=run_options, run_metadata=run_metadata)
                 writer.add_run_metadata(run_metadata, 'step%d' % (update * update_fac))
             else:
                 summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _ = self.sess.run(
-                    [self.summary, self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train],
+                    [self.summary, self.pg_loss[agent], self.vf_loss[agent], self.entropy[agent], self.approxkl[agent], self.clipfrac[agent], self._train],
                     td_map)
             writer.add_summary(summary, (update * update_fac))
         else:
             policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _ = self.sess.run(
-                [self.pg_loss, self.vf_loss, self.entropy, self.approxkl, self.clipfrac, self._train], td_map)
+                [self.pg_loss[agent], self.vf_loss[agent], self.entropy[agent], self.approxkl[agent], self.clipfrac[agent], self._train], td_map)
 
         return policy_loss, value_loss, policy_entropy, approxkl, clipfrac
 
