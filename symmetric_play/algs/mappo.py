@@ -87,8 +87,8 @@ class MAPPO2(ActorCriticRLModel):
         self.pg_loss = []
         self.approxkl = []
         self.clipfrac = []
-        self.params = None
-        self._train = None
+        self.params = []
+        self._train = []
         self.loss_names = None
         self.num_agents = num_agents
         self.train_model = []   #MA-MOD
@@ -201,16 +201,16 @@ class MAPPO2(ActorCriticRLModel):
                         # tf.summary.scalar('loss', loss)
 
                         with tf.variable_scope('model_'+str(i)): #MA-MOD
-                            self.params = tf.trainable_variables()
+                            self.params.append(tf.trainable_variables())
                             if self.full_tensorboard_log:
-                                for var in self.params:
+                                for var in self.params[i]:
                                     tf.summary.histogram(var.name, var)
-                        grads = tf.gradients(loss, self.params)
+                        grads = tf.gradients(loss, self.params[i])
                         if self.max_grad_norm is not None:
                             grads, _grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
-                        grads = list(zip(grads, self.params))
+                        grads = list(zip(grads, self.params[i]))
                     trainer = tf.train.AdamOptimizer(learning_rate=self.learning_rate_ph[i], epsilon=1e-5)
-                    self._train = trainer.apply_gradients(grads)
+                    self._train.append(trainer.apply_gradients(grads))
 
                     self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac']
 
@@ -292,17 +292,17 @@ class MAPPO2(ActorCriticRLModel):
                 run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                 run_metadata = tf.RunMetadata()
                 summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _ = self.sess.run(
-                    [self.summary, self.pg_loss[agent], self.vf_loss[agent], self.entropy[agent], self.approxkl[agent], self.clipfrac[agent], self._train],
+                    [self.summary, self.pg_loss[agent], self.vf_loss[agent], self.entropy[agent], self.approxkl[agent], self.clipfrac[agent], self._train[agent]],
                     td_map, options=run_options, run_metadata=run_metadata)
                 writer.add_run_metadata(run_metadata, 'step%d' % (update * update_fac))
             else:
                 summary, policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _ = self.sess.run(
-                    [self.summary, self.pg_loss[agent], self.vf_loss[agent], self.entropy[agent], self.approxkl[agent], self.clipfrac[agent], self._train],
+                    [self.summary, self.pg_loss[agent], self.vf_loss[agent], self.entropy[agent], self.approxkl[agent], self.clipfrac[agent], self._train[agent]],
                     td_map)
             writer.add_summary(summary, (update * update_fac))
         else:
             policy_loss, value_loss, policy_entropy, approxkl, clipfrac, _ = self.sess.run(
-                [self.pg_loss[agent], self.vf_loss[agent], self.entropy[agent], self.approxkl[agent], self.clipfrac[agent], self._train], td_map)
+                [self.pg_loss[agent], self.vf_loss[agent], self.entropy[agent], self.approxkl[agent], self.clipfrac[agent], self._train[agent]], td_map)
 
         return policy_loss, value_loss, policy_entropy, approxkl, clipfrac
 
