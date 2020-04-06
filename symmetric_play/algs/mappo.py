@@ -12,10 +12,6 @@ from stable_baselines.common.runners import AbstractEnvRunner
 from stable_baselines.common.policies import ActorCriticPolicy, RecurrentActorCriticPolicy
 from stable_baselines.a2c.utils import total_episode_reward_logger
 
-<<<<<<< HEAD
-
-=======
->>>>>>> c5b40b7ae88b17a3b7a196d16c194c5d86e07d24
 class MAPPO2(ActorCriticRLModel):
     """
     Proximal Policy Optimization algorithm (GPU version).
@@ -250,7 +246,7 @@ class MAPPO2(ActorCriticRLModel):
 
                 self.summary = tf.summary.merge_all()
 
-    def _train_step(self, learning_rate, cliprange, obs, returns, masks, actions, values, neglogpacs, update, agent #MA-MOD
+    def _train_step(self, learning_rate, cliprange, obs, returns, masks, actions, values, neglogpacs, update, agent, #MA-MOD
                     writer, states=None, cliprange_vf=None):
         """
         Training of PPO2 Algorithm
