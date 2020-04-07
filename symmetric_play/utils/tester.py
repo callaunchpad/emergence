@@ -18,6 +18,5 @@ def test(name, num_timesteps, gif=False):
             done = done.any()
         if done:
             obs = env.reset()
-        
-
+    
     env.close()
