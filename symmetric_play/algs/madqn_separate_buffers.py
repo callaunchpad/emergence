@@ -13,7 +13,7 @@ from stable_baselines.deepq.replay_buffer import ReplayBuffer, PrioritizedReplay
 from stable_baselines.deepq.policies import DQNPolicy
 
 
-class MADQN(OffPolicyRLModel):
+class MADQNSB(OffPolicyRLModel):
     """
     The DQN model class.
     DQN paper: https://arxiv.org/abs/1312.5602
@@ -64,7 +64,7 @@ class MADQN(OffPolicyRLModel):
                  _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False, seed=None,
                  num_agents=1): # MA-MOD
 
-        super(MADQN, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
+        super(MADQNSB, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
                                   requires_vec_env=False, policy_kwargs=policy_kwargs, seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
         # print("POLICY TYPE", policy)
         self.param_noise = param_noise
