@@ -31,7 +31,6 @@ class Pong(gym.Env):
         self.paddleSpeed = 10
         self.maxscore = 10
         self.observation_space = []
-        self.reward = np.zeros(2)
         self.info = {}
         self.done = False
         self.action_space = spaces.Discrete(self.n_actions)
@@ -107,15 +106,16 @@ class Pong(gym.Env):
         if meetscreen:
             self.ball.vel[1] *= -1
 
+        reward = np.zeros(2)
         # Player 1 scores a goal
         if (self.ball.pos[0] < 0):
-            self.reward[1] += 1
-            self.reward[0] -= 1
+            reward[1] = 1
+            reward[0] = 0
             self.paddle1.score += 1
         # Player 0 scores a goal
         elif (self.ball.pos[0] > self.screenWidth):
-            self.reward[1] += 1
-            self.reward[0] -= 1
+            reward[1] = 1
+            reward[0] = 0
             self.paddle0.score += 1
 
         # If any player scores above maxscore, the game ends
@@ -129,7 +129,7 @@ class Pong(gym.Env):
         elif (self.numAgents == 1):
             self.observation = np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten()
             self.observation = np.expand_dims(self.observation, axis=0)
-        return self.observation, self.reward, self.done, self.info
+        return self.observation, reward, self.done, self.info
 
     def render(self, mode='human'):
         # Not sure if this works
