@@ -2,7 +2,7 @@ import os
 import imageio
 import copy
 import gym
-from stable_baselines.bench import Monitor
+from .monitor import Monitor
 from stable_baselines import logger
 import numpy as np
 from stable_baselines.common import set_global_seeds
@@ -86,7 +86,7 @@ def train(params, model=None, env=None):
             env = get_env(params)
             print("ENV IN UTIL" ,env)
             # TODO: make monitor work for multiple agent.
-            # env = Monitor(env, data_dir + '/' + str(i), allow_early_resets=params['early_reset'])
+            env = Monitor(env, data_dir + '/' + str(i), allow_early_resets=params['early_reset'])
             return env
 
         # env = DummyVecEnv([(lambda n: lambda: make_env(n))(i) for i in range(params['num_proc'])])

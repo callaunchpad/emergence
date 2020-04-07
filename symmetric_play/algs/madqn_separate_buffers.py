@@ -268,16 +268,19 @@ class MADQN(OffPolicyRLModel):
 
             # TODO: current episode_rewards is a list, make it a list of lists where each list is the reward for each agent in all timesteps
             #     append the newest reward to the end of each list for each agent
-            for num_agent in range(self.num_agents): #MA-MOD
-                episode_rewards[-1][num_agent] += rew[num_agent]
-                if done.any():
-                    maybe_is_success = info.get('is_success')
-                    if maybe_is_success is not None:
-                        episode_successes.append(float(maybe_is_success))
-                    if not isinstance(self.env, VecEnv):
-                        obs = self.env.reset()
-                    episode_rewards.append([0.0] * self.num_agents)
-                    reset = True
+            if isinstance(done, list):
+                done = np.array(done)
+            if done.any():
+                for num_agent in range(self.num_agents): #MA-MOD
+                    episode_rewards[-1][num_agent] += rew[num_agent]
+                maybe_is_success = info.get('is_success')
+                if maybe_is_success is not None:
+                    episode_successes.append(float(maybe_is_success))
+                if not isinstance(self.env, VecEnv):
+                    obs = self.env.reset()
+                episode_rewards.append([0.0] * self.num_agents)
+                reset = True
+
 
             # Do not train if the warmup phase is not over
             # or if there are not enough samples in the replay buffer

@@ -235,7 +235,15 @@ class MADQN(OffPolicyRLModel):
                     action = self.act[i](np.array(obs[i])[None], update_eps=update_eps, **kwargs)[0] # TODO: Is this the correct way to get the correct agent obs?
                     env_action.append(action)
             reset = False
+            print(env_action)
             new_obs, rew, done, info = self.env.step(env_action) # NOUPDATE - env.step should take a vector of actions
+            # print("Agent 1", type(new_obs[0]))
+            # for row in new_obs[0]:
+            #     print(' '.join(str(int(item)) for item in row))
+
+            # print("Agent 2", type(new_obs[1]))
+            # for row in new_obs[1]:
+            #     print(' '.join(str(int(item)) for item in row))
 
             '''
             Obs: x_me, x_opp --- agent 1. In env: x_1, x_2
@@ -270,16 +278,18 @@ class MADQN(OffPolicyRLModel):
 
             # TODO: current episode_rewards is a list, make it a list of lists where each list is the reward for each agent in all timesteps
             #     append the newest reward to the end of each list for each agent
-            for num_agent in range(self.num_agents): #MA-MOD
-                episode_rewards[-1][num_agent] += rew[num_agent]
-                if done.any():
-                    maybe_is_success = info.get('is_success')
-                    if maybe_is_success is not None:
-                        episode_successes.append(float(maybe_is_success))
-                    if not isinstance(self.env, VecEnv):
-                        obs = self.env.reset()
-                    episode_rewards.append([0.0] * self.num_agents)
-                    reset = True
+            if isinstance(done, list):
+                done = np.array(done)
+            if done.any():
+                for num_agent in range(self.num_agents): #MA-MOD
+                    episode_rewards[-1][num_agent] += rew[num_agent]
+                maybe_is_success = info.get('is_success')
+                if maybe_is_success is not None:
+                    episode_successes.append(float(maybe_is_success))
+                if not isinstance(self.env, VecEnv):
+                    obs = self.env.reset()
+                episode_rewards.append([0.0] * self.num_agents)
+                reset = True
 
             # Do not train if the warmup phase is not over
             # or if there are not enough samples in the replay buffer
@@ -335,9 +345,9 @@ class MADQN(OffPolicyRLModel):
                     self.update_target[i](sess=self.sess) # MA-MOD
 
             if len(episode_rewards[-101:-1]) == 0: # MA-MOD
-                mean_100ep_reward = -np.inf
+                mean_100ep_reward = -np.inf * np.ones((self.num_agents,))
             else:
-                mean_100ep_reward = round(float(np.mean(episode_rewards[-101:-1])), 1) #MA-MOD
+                mean_100ep_reward = np.mean(episode_rewards[-101:-1], axis=0)
 
             # below is what's logged in terminal.
             num_episodes = len(episode_rewards) #MA-MOD
@@ -345,7 +355,7 @@ class MADQN(OffPolicyRLModel):
                 logger.record_tabular("steps", self.num_timesteps)
                 logger.record_tabular("episodes", num_episodes)
                 if len(episode_successes) > 0:
-                    logger.logkv("success rate", np.mean(episode_successes[-100:]))
+                    logger.logkv("success rate", np.mean(episode_successes[-100:], axis=0))
                 logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
                 logger.record_tabular("% time spent exploring",
                                         int(100 * self.exploration.value(self.num_timesteps)))
@@ -353,18 +363,21 @@ class MADQN(OffPolicyRLModel):
 
         return self
 
-    def predict(self, observation, agent_idx, state=None, mask=None, deterministic=True): # MA-MOD - added `agent_idx` as a parameter
+    def predict(self, observation, state=None, mask=None, deterministic=True): # MA-MOD - added `agent_idx` as a parameter
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
+        action = list()
         with self.sess.as_default():
-            actions, _, _ = self.step_model[agent_idx].step(observation, deterministic=deterministic)
-
+            for agent_idx in range(self.num_agents):
+                # agent_ac, _, _ = self.step_model[agent_idx].step(observation, deterministic=deterministic)
+                ac_step = self.act[agent_idx](observation)[0]
+                # print("Agent Action", agent_idx, agent_ac, ac_step)
+                action.append(ac_step)
         if not vectorized_env:
-            actions = actions[0]
-
-        return actions, None
+            action = [ac[0] for ac in action]
+        return action, None
 
 
     # No one ever calls this, so we don't need it?

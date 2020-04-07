@@ -281,10 +281,10 @@ class MultiSneks(gym.Env):
         'observation.types': ['raw', 'rgb', 'layered']
     }
 
-    def __init__(self, size=(16,16), n_sneks=2, step_limit=1000, dynamic_step_limit=1000, obs_type='raw', obs_zoom=1, n_food=1, render_zoom=20, add_walls=False):
+    def __init__(self, size=(16,16), num_agents=2, step_limit=1000, dynamic_step_limit=1000, obs_type='raw', obs_zoom=1, n_food=1, render_zoom=20, add_walls=False):
         # Set size of the game world
         self.SIZE = size
-        self.N_SNEKS = n_sneks
+        self.N_SNEKS = num_agents
         self.alive = None
         # Set step limit
         self.STEP_LIMIT = step_limit
@@ -395,7 +395,6 @@ class MultiSneks(gym.Env):
                 temp_2d.append(temp_row)
             allsneks.append(temp_2d)
         return allsneks
-
 
     def render(self, mode='human', close=False):
         if not close:
