@@ -143,7 +143,7 @@ class Pong(gym.Env):
         # print("Done: ", self.done)
         # print("Reward:", reward)
         # print(" ---------------------- ")
-        return self.observation, reward, self.done, self.info
+        return self.observation, reward, done, self.info
 
     def render(self, mode='human'):
         # Not sure if this works
