@@ -46,21 +46,21 @@ def callback(_locals, _globals, data_dir, params, env, freq=None, checkpoint_fre
 
        # copy model and environment since environment is variable embedded in SB models
        # NOTE: may break if model is passed to train function
-        alg = get_alg(params)
-        model = alg.load(data_dir + name)
-        new_env = get_env(params)
+        # alg = get_alg(params)
+        # model = alg.load(data_dir + name)
+        # new_env = get_env(params)
         
-        images = []
-        obs = new_env.reset()
-        img = new_env.render(mode='rgb_array')
-        for i in range(350):
-            images.append(img)
-            action, _ = model.predict(obs)
-            obs, _, _ ,_ = new_env.step(action)
-            img = new_env.render(mode='rgb_array')
-        file_name = data_dir + name + '.gif'
-        imageio.mimsave(file_name, [np.array(img) for i, img in enumerate(images) if i%2 == 0], fps=29, subrectangles=True)
-        new_env.close()
+        # images = []
+        # obs = new_env.reset()
+        # img = new_env.render(mode='rgb_array')
+        # for i in range(350):
+        #     images.append(img)
+        #     action, _ = model.predict(obs)
+        #     obs, _, _ ,_ = new_env.step(action)
+        #     img = new_env.render(mode='rgb_array')
+        # file_name = data_dir + name + '.gif'
+        # imageio.mimsave(file_name, [np.array(img) for i, img in enumerate(images) if i%2 == 0], fps=29, subrectangles=True)
+        # new_env.close()
 
     n_steps += 1
     return True
