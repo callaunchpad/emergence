@@ -36,7 +36,7 @@ class Pong(gym.Env):
 
     def generateObs(self, ballPos, paddle0Pos, paddle1Pos, ballVel, paddle0Vel, paddle1Vel):
         obs0 = np.array([ballPos, paddle0Pos, paddle1Pos, ballVel, paddle0Vel, paddle1Vel]).flatten()
-        
+
         newBallPos = [self.screenWidth - ballPos[0], ballPos[1]]
         newBallVel = [-ballVel[0], ballVel[1]]
         newpaddle0Pos = [self.screenWidth - paddle0Pos[0], paddle0Pos[1]]
@@ -78,14 +78,14 @@ class Pong(gym.Env):
         meetscreen = False
         newBallX = self.ball.pos[0] + self.ball.vel[0]
         newBallY = self.ball.pos[1] + self.ball.vel[1]
-        if (newBallY < 0): 
+        if (newBallY < 0):
             newBallY = 0
             meetscreen = True
         elif (newBallY > self.screenHeight - self.ballHeight*0.5):
             newBallY = self.screenHeight - self.ballHeight*0.5
             meetscreen = True
         if (self.paddle0.pos[1] - self.paddleHeight*0.5 < newBallY and self.paddle0.pos[1] + self.paddleHeight*0.5 > newBallY
-                and newBallX - self.ballWidth*0.5 <= self.paddleWidth): 
+                and newBallX - self.ballWidth*0.5 <= self.paddleWidth):
             newBallX = self.paddleWidth
             meetpaddle0 = True
         elif (self.paddle1.pos[1] + self.paddleHeight*0.5 < newBallY and self.paddle1.pos[1] + self.paddleHeight*0.5 > newBallY
@@ -95,7 +95,7 @@ class Pong(gym.Env):
         self.ball.pos = np.array([newBallX, newBallY])
 
         # Update velocities
-        if (self.numAgents == 2): 
+        if (self.numAgents == 2):
             self.paddle0.vel[1] = self.paddleSpeed*(action[0]-2)
             self.paddle1.vel[1] = self.paddleSpeed*(action[1]-2)
         elif (self.numAgents == 1):
@@ -105,11 +105,11 @@ class Pong(gym.Env):
         reward = np.zeros(2)
         # Update ball velocity: hitting the edge of the screen and the paddles will cause it to bounce back
         # Hitting the paddle while the paddle is moving will cause the ball to accelerate in that direction as well
-        if meetpaddle0: 
+        if meetpaddle0:
             self.ball.vel[0] *= -1
             self.ball.vel[1] += self.paddle0.vel[1]
             reward[0] += 1
-        elif meetpaddle1: 
+        elif meetpaddle1:
             self.ball.vel[0] *= -1
             self.ball.vel[1] += self.paddle1.vel[1]
             reward[1] += 1
@@ -121,7 +121,7 @@ class Pong(gym.Env):
             reward[1] = 0
             reward[0] -= 1
             done = np.array([True, True])
-        
+
         # Player 0 scores a goal
         elif (self.ball.pos[0] > self.screenWidth):
             reward[1] -= 1
@@ -133,7 +133,7 @@ class Pong(gym.Env):
         elif (self.numAgents == 1):
             self.observation = np.array([self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel]).flatten()
             self.observation = np.expand_dims(self.observation, axis=0)
-        
+
         # print("Ball position: ", self.ball.pos)
         # print("Paddle0 position: ", self.paddle0.pos)
         # print("Paddle1 position: ", self.paddle1.pos)
@@ -158,26 +158,26 @@ class Pong(gym.Env):
 		#set up canvas
         self.canvas.fill(BLACK)
         pygame.draw.line(self.canvas, WHITE, [self.screenWidth / 2, 0],[self.screenWidth / 2, self.screenHeight], 1)
-        pygame.draw.line(self.canvas, WHITE, [self.paddleWidth, 0],[self.paddleWidth, self.screenheight], 1)
+        pygame.draw.line(self.canvas, WHITE, [self.paddleWidth, 0],[self.paddleWidth, self.screenHeight], 1)
         pygame.draw.line(self.canvas, WHITE, [self.screenWidth - self.paddleWidth, 0],[self.screenWidth - self.paddleWidth, self.screenHeight], 1)
         pygame.draw.circle(self.canvas, WHITE, [self.screenWidth//2, self.screenHeight//2], 70, 1)
 
 		#draw paddles and ball
-        pygame.draw.circle(self.canvas, RED, [*map(int,self.ball.pos)], (self.ballHeight / 2), 0)
-        pygame.draw.polygon(self.canvas, GREEN, [[self.paddle1.pos[0] - (self.paddleWidth / 2), self.paddle1.pos[1] - (self.paddleHeight / 2)], 
-												[self.paddle1.pos[0] - (self.paddleWidth / 2), self.paddle1.pos[1] + (self.paddleHeight / 2)], 
-												[self.paddle1.pos[0] + (self.paddleWidth / 2), self.paddle1.pos[1] + (self.paddleHeight / 2)], 
+        pygame.draw.circle(self.canvas, RED, [*map(int,self.ball.pos)], (self.ballHeight // 2), 0)
+        pygame.draw.polygon(self.canvas, GREEN, [[self.paddle0.pos[0] - (self.paddleWidth / 2), self.paddle0.pos[1] - (self.paddleHeight / 2)],
+												[self.paddle0.pos[0] - (self.paddleWidth / 2), self.paddle0.pos[1] + (self.paddleHeight / 2)],
+												[self.paddle0.pos[0] + (self.paddleWidth / 2), self.paddle0.pos[1] + (self.paddleHeight / 2)],
+												[self.paddle0.pos[0] + (self.paddleWidth / 2), self.paddle0.pos[1] - (self.paddleHeight / 2)]], 0)
+        pygame.draw.polygon(self.canvas, GREEN, [[self.paddle1.pos[0] - (self.paddleWidth / 2), self.paddle1.pos[1] - (self.paddleHeight / 2)],
+												[self.paddle1.pos[0] - (self.paddleWidth / 2), self.paddle1.pos[1] + (self.paddleHeight / 2)],
+												[self.paddle1.pos[0] + (self.paddleWidth / 2), self.paddle1.pos[1] + (self.paddleHeight / 2)],
 												[self.paddle1.pos[0] + (self.paddleWidth / 2), self.paddle1.pos[1] - (self.paddleHeight / 2)]], 0)
-        pygame.draw.polygon(self.canvas, GREEN, [[self.paddle2.pos[0] - (self.paddleWidth / 2), self.paddle2.pos[1] - (self.paddleHeight / 2)], 
-												[self.paddle2.pos[0] - (self.paddleWidth / 2), self.paddle2.pos[1] + (self.paddleHeight / 2)], 
-												[self.paddle2.pos[0] + (self.paddleWidth / 2), self.paddle2.pos[1] + (self.paddleHeight / 2)], 
-												[self.paddle2.pos[0] + (self.paddleWidth / 2), self.paddle2.pos[1] - (self.paddleHeight / 2)]], 0)
 
-        if close:
-            if self.viewer is not None:
-                self.viewer.close()
-                self.viewer = None
-            return
+        # if close:
+        #     if self.viewer is not None:
+        #         self.viewer.close()
+        #         self.viewer = None
+        #     return
         if mode == 'rgb_array':
             return self.screen
         elif mode == 'human':

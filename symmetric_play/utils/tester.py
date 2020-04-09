@@ -21,13 +21,14 @@ def test(name, num_timesteps, gif=False):
         if done:
             obs = env.reset()
             break
-    id = 0
-    while True:
-        file_path = 'output/' + name + '/test_' + str(id) + '.gif'
-        if not os.path.isfile(file_path):
-            break
-        id += 1
-    
-    print(file_path)
-    imageio.mimsave(file_path, [np.array(img) for i, img in enumerate(images) if i%2 == 0], fps=29, subrectangles=True)
-    env.close()
+    if gif:
+        id = 0
+        while True:
+            file_path = 'output/' + name + '/test_' + str(id) + '.gif'
+            if not os.path.isfile(file_path):
+                break
+            id += 1
+
+        print(file_path)
+        imageio.mimsave(file_path, [np.array(img) for i, img in enumerate(images) if i%2 == 0], fps=29, subrectangles=True)
+        env.close()
