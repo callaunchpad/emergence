@@ -48,7 +48,7 @@ class Pong(gym.Env):
         return np.array([obs0, obs1])
 
     def reset(self):
-        self.ball = PongObject([self.screenWidth/2, self.screenHeight/2], [5, 0])
+        self.ball = PongObject([self.screenWidth/2, self.screenHeight/2], [random.choice([5, -5]), 0])
         self.paddle0 = PongObject([self.paddleWidth, self.screenHeight/2], [0, 0])
         self.paddle1 = PongObject([self.screenWidth - self.paddleWidth, self.screenHeight/2], [0, 0])
         if (self.numAgents == 2):
@@ -69,8 +69,8 @@ class Pong(gym.Env):
     def step(self, action):
         done = np.array([False, False])
         # Update positions but keep paddles in the screen
-        self.paddle0.pos[1] = min(max(self.paddle0.vel[1] + self.paddle0.pos[1], 0), self.screenHeight - self.paddleHeight)
-        self.paddle1.pos[1] = min(max(self.paddle1.vel[1] + self.paddle1.pos[1], 0), self.screenHeight - self.paddleHeight)
+        self.paddle0.pos[1] = min(max(self.paddle0.vel[1] + self.paddle0.pos[1], self.paddleHeight), self.screenHeight - self.paddleHeight)
+        self.paddle1.pos[1] = min(max(self.paddle1.vel[1] + self.paddle1.pos[1], self.paddleHeight), self.screenHeight - self.paddleHeight)
 
         # Update ball position, don't let it overlap with paddle or leave the screen
         meetpaddle0 = False
@@ -84,11 +84,11 @@ class Pong(gym.Env):
         elif (newBallY > self.screenHeight - self.ballHeight*0.5):
             newBallY = self.screenHeight - self.ballHeight*0.5
             meetscreen = True
-        if (self.paddle0.pos[1] - self.paddleHeight*0.5 < newBallY and self.paddle0.pos[1] + self.paddleHeight*0.5 > newBallY
+        if (self.paddle0.pos[1] - self.paddleHeight < newBallY and self.paddle0.pos[1] + self.paddleHeight > newBallY
                 and newBallX - self.ballWidth*0.5 <= self.paddleWidth):
             newBallX = self.paddleWidth
             meetpaddle0 = True
-        elif (self.paddle1.pos[1] - self.paddleHeight*0.5 < newBallY and self.paddle1.pos[1] + self.paddleHeight*0.5 > newBallY
+        elif (self.paddle1.pos[1] - self.paddleHeight < newBallY and self.paddle1.pos[1] + self.paddleHeight > newBallY
                 and newBallX + self.ballWidth*0.5 >= self.screenWidth - self.paddleWidth):
             newBallX = self.screenWidth - self.paddleWidth
             meetpaddle1 = True
@@ -118,14 +118,14 @@ class Pong(gym.Env):
 
         # Player 1 scores a goal
         if (self.ball.pos[0] <= 0):
-            reward[1] += 10
-            reward[0] -= 10
+            reward[1] = 0
+            reward[0] = -1
             done = np.array([True, True])
 
         # Player 0 scores a goal
         elif (self.ball.pos[0] >= self.screenWidth):
-            reward[1] -= 10
-            reward[0] += 10
+            reward[1] = -1
+            reward[0] = 0
             done = np.array([True, True])
 
         if (self.numAgents == 2):
