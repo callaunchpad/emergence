@@ -21,6 +21,7 @@ def test(name, num_timesteps, gif=False):
         if done:
             obs = env.reset()
             break
+
     if gif:
         id = 0
         while True:
@@ -32,3 +33,4 @@ def test(name, num_timesteps, gif=False):
         print(file_path)
         imageio.mimsave(file_path, [np.array(img) for i, img in enumerate(images) if i%2 == 0], fps=29, subrectangles=True)
         env.close()
+
