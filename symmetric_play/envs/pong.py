@@ -48,7 +48,7 @@ class Pong(gym.Env):
         return np.array([obs0, obs1])
 
     def reset(self):
-        self.ball = PongObject([self.screenWidth/2, self.screenHeight/2], [random.choice([5, -5]), 0])
+        self.ball = PongObject([self.screenWidth/2, self.screenHeight/2], [5, 0])
         self.paddle0 = PongObject([self.paddleWidth, self.screenHeight/2], [0, 0])
         self.paddle1 = PongObject([self.screenWidth - self.paddleWidth, self.screenHeight/2], [0, 0])
         if (self.numAgents == 2):
@@ -88,7 +88,7 @@ class Pong(gym.Env):
                 and newBallX - self.ballWidth*0.5 <= self.paddleWidth):
             newBallX = self.paddleWidth
             meetpaddle0 = True
-        elif (self.paddle1.pos[1] + self.paddleHeight*0.5 < newBallY and self.paddle1.pos[1] + self.paddleHeight*0.5 > newBallY
+        elif (self.paddle1.pos[1] - self.paddleHeight*0.5 < newBallY and self.paddle1.pos[1] + self.paddleHeight*0.5 > newBallY
                 and newBallX + self.ballWidth*0.5 >= self.screenWidth - self.paddleWidth):
             newBallX = self.screenWidth - self.paddleWidth
             meetpaddle1 = True
@@ -117,15 +117,15 @@ class Pong(gym.Env):
             self.ball.vel[1] *= -1
 
         # Player 1 scores a goal
-        if (self.ball.pos[0] < 0):
-            reward[1] = 0
-            reward[0] -= 1
+        if (self.ball.pos[0] <= 0):
+            reward[1] += 10
+            reward[0] -= 10
             done = np.array([True, True])
 
         # Player 0 scores a goal
-        elif (self.ball.pos[0] > self.screenWidth):
-            reward[1] -= 1
-            reward[0] = 0
+        elif (self.ball.pos[0] >= self.screenWidth):
+            reward[1] -= 10
+            reward[0] += 10
             done = np.array([True, True])
 
         if (self.numAgents == 2):
@@ -140,7 +140,7 @@ class Pong(gym.Env):
         # print("Ball velocity: ", self.ball.vel)
         # print("Paddle0 velocity: ", self.paddle0.vel)
         # print("Paddle1 velocity: ", self.paddle1.vel)
-        # print("Done: ", self.done)
+        # print("Done: ", done)
         # print("Reward:", reward)
         # print(" ---------------------- ")
         return self.observation, reward, done, self.info
