@@ -28,6 +28,5 @@ def test(name, num_timesteps, gif=False):
             break
         id += 1
     
-    print(file_path)
     imageio.mimsave(file_path, [np.array(img) for i, img in enumerate(images) if i%2 == 0], fps=29, subrectangles=True)
     env.close()
