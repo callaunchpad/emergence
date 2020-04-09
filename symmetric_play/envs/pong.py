@@ -153,7 +153,6 @@ class Pong(gym.Env):
         BLACK = (0, 0, 0)
 
         self.canvas = pygame.Surface((self.screenWidth, self.screenHeight))
-        self.screen = sarray.array3d(self.canvas)
 
 		#set up canvas
         self.canvas.fill(BLACK)
@@ -172,7 +171,7 @@ class Pong(gym.Env):
 												[self.paddle1.pos[0] - (self.paddleWidth / 2), self.paddle1.pos[1] + (self.paddleHeight / 2)],
 												[self.paddle1.pos[0] + (self.paddleWidth / 2), self.paddle1.pos[1] + (self.paddleHeight / 2)],
 												[self.paddle1.pos[0] + (self.paddleWidth / 2), self.paddle1.pos[1] - (self.paddleHeight / 2)]], 0)
-
+        self.screen = sarray.array3d(self.canvas)
         # if close:
         #     if self.viewer is not None:
         #         self.viewer.close()
