@@ -67,6 +67,7 @@ class Pong(gym.Env):
         return self.observation
 
     def step(self, action):
+        done = np.array([False, False])
         # Update positions but keep paddles in the screen
         self.paddle0.pos[1] = min(max(self.paddle0.vel[1] + self.paddle0.pos[1], 0), self.screenHeight - self.paddleHeight)
         self.paddle1.pos[1] = min(max(self.paddle1.vel[1] + self.paddle1.pos[1], 0), self.screenHeight - self.paddleHeight)
@@ -101,29 +102,31 @@ class Pong(gym.Env):
             self.paddle0.vel[1] = self.paddleSpeed*(action[0]-2)
             self.paddle1.vel[1] = self.paddleSpeed*(random.choice([0,1,2,3,4])-2)
 
+        reward = np.zeros(2)
         # Update ball velocity: hitting the edge of the screen and the paddles will cause it to bounce back
         # Hitting the paddle while the paddle is moving will cause the ball to accelerate in that direction as well
         if meetpaddle0: 
             self.ball.vel[0] *= -1
             self.ball.vel[1] += self.paddle0.vel[1]
+            reward[0] += 1
         elif meetpaddle1: 
             self.ball.vel[0] *= -1
             self.ball.vel[1] += self.paddle1.vel[1]
+            reward[1] += 1
         if meetscreen:
             self.ball.vel[1] *= -1
 
-        reward = np.zeros(2)
         # Player 1 scores a goal
         if (self.ball.pos[0] < 0):
-            reward[1] = 1
-            reward[0] = 0
-            self.done = np.array([True, True])
+            reward[1] = 0
+            reward[0] -= 1
+            done = np.array([True, True])
         
         # Player 0 scores a goal
         elif (self.ball.pos[0] > self.screenWidth):
-            reward[1] = 0
-            reward[0] = 1
-            self.done = np.array([True, True])
+            reward[1] -= 1
+            reward[0] = 0
+            done = np.array([True, True])
 
         if (self.numAgents == 2):
             self.observation = self.generateObs(self.ball.pos, self.paddle0.pos, self.paddle1.pos, self.ball.vel, self.paddle0.vel, self.paddle1.vel)
@@ -140,7 +143,7 @@ class Pong(gym.Env):
         # print("Done: ", self.done)
         # print("Reward:", reward)
         # print(" ---------------------- ")
-        return self.observation, reward, self.done, self.info
+        return self.observation, reward, done, self.info
 
     def render(self, mode='human'):
         # Not sure if this works

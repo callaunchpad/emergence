@@ -155,9 +155,6 @@ class MADQNSB(OffPolicyRLModel):
                         self.update_target.append(update_target)
                         self.params.extend(tf_util.get_trainable_vars("agent"+str(i) + "/deepq"))
 
-
-                print(self.params)
-
                 # Initialize the parameters and copy them to the target network.
                 tf_util.initialize(self.sess)
                 for i in range(self.num_agents):
@@ -240,7 +237,6 @@ class MADQNSB(OffPolicyRLModel):
             Obs: x_me, x_opp -- agent 2. In env: x_2, x_1
             Env: (n_agents, state_dim)
             '''
-
             self.num_timesteps += 1
 
             # Stop training if return value is False
@@ -248,14 +244,6 @@ class MADQNSB(OffPolicyRLModel):
             #    break
 
             # Store transition in the replay buffer.
-            # Loop for replay buffer -- either separate or joined. obs[agent_index], action[agent_index], reward[agent_index]
-            # Joey: Does this look right to you?
-            # print(obs, action, rew, new_obs, done)
-            #print("obs",obs[0])
-            #print(action)
-            #print("ac", action[0])
-            #print("rew", rew[0])
-            #print("done", done[0])
             for num_agent in range(self.num_agents):
                 self.replay_buffer[num_agent].add(obs[num_agent], env_action[num_agent], rew[num_agent], new_obs[num_agent], float(done[num_agent])) # MA-MOD
             obs = new_obs
@@ -335,9 +323,9 @@ class MADQNSB(OffPolicyRLModel):
                     self.update_target[i](sess=self.sess) # MA-MOD
 
             if len(episode_rewards[-101:-1]) == 0: # MA-MOD
-                mean_100ep_reward = -np.inf
+                mean_100ep_reward = -np.inf * np.ones((self.num_agents,))
             else:
-                mean_100ep_reward = round(float(np.mean(episode_rewards[-101:-1])), 1) #MA-MOD
+                mean_100ep_reward = np.mean(episode_rewards[-101:-1], axis=0)
 
             # below is what's logged in terminal.
             num_episodes = len(episode_rewards) #MA-MOD
@@ -345,7 +333,7 @@ class MADQNSB(OffPolicyRLModel):
                 logger.record_tabular("steps", self.num_timesteps)
                 logger.record_tabular("episodes", num_episodes)
                 if len(episode_successes) > 0:
-                    logger.logkv("success rate", np.mean(episode_successes[-100:]))
+                    logger.logkv("success rate", np.mean(episode_successes[-100:], axis=0))
                 logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
                 logger.record_tabular("% time spent exploring",
                                         int(100 * self.exploration.value(self.num_timesteps)))
@@ -353,18 +341,21 @@ class MADQNSB(OffPolicyRLModel):
 
         return self
 
-    def predict(self, observation, agent_idx, state=None, mask=None, deterministic=True): # MA-MOD - added `agent_idx` as a parameter
+    def predict(self, observation, state=None, mask=None, deterministic=True): # MA-MOD - added `agent_idx` as a parameter
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
+        action = list()
         with self.sess.as_default():
-            actions, _, _ = self.step_model[agent_idx].step(observation, deterministic=deterministic)
-
+            for agent_idx in range(self.num_agents):
+                # agent_ac, _, _ = self.step_model[agent_idx].step(observation, deterministic=deterministic)
+                ac_step = self.act[agent_idx](observation)[0]
+                # print("Agent Action", agent_idx, agent_ac, ac_step)
+                action.append(ac_step)
         if not vectorized_env:
-            actions = actions[0]
-
-        return actions, None
+            action = [ac[0] for ac in action]
+        return action, None
 
 
     # No one ever calls this, so we don't need it?
@@ -398,7 +389,6 @@ class MADQNSB(OffPolicyRLModel):
         '''
 
     def get_parameter_list(self):
-        print(self.params)
         return self.params
 
     def save(self, save_path, cloudpickle=False):

@@ -13,6 +13,7 @@ def test(name, num_timesteps, gif=False):
         action, _ = model.predict(obs)
         obs, done, reward ,_ = env.step(action)
         img = env.render(mode=mode)
+<<<<<<< HEAD
         # if isinstance(done, list):
         #     done = np.array(done)
         # if isinstance(done, np.ndarray):
@@ -35,3 +36,13 @@ def test(name, num_timesteps, gif=False):
     # file_name = data_dir + name + '.gif'
     # imageio.mimsave(file_name, [np.array(img) for i, img in enumerate(images) if i%2 == 0], fps=29, subrectangles=True)
     # new_env.close()
+=======
+        if isinstance(done, list):
+            done = np.array(done)
+        if isinstance(done, np.ndarray):
+            done = done.any()
+        if done:
+            obs = env.reset()
+    
+    env.close()
+>>>>>>> feccb36899fd921f54ee7b7ce3c41dcfe231cc0d

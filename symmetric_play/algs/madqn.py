@@ -158,8 +158,6 @@ class MADQN(OffPolicyRLModel):
                         self.params.extend(tf_util.get_trainable_vars("agent"+str(i) + "/deepq"))
 
 
-                print(self.params)
-
                 # Initialize the parameters and copy them to the target network.
                 tf_util.initialize(self.sess) # TODO: copy this file, make two versions of the algorithm.
                 for i in range(self.num_agents):
@@ -235,7 +233,6 @@ class MADQN(OffPolicyRLModel):
                     action = self.act[i](np.array(obs[i])[None], update_eps=update_eps, **kwargs)[0] # TODO: Is this the correct way to get the correct agent obs?
                     env_action.append(action)
             reset = False
-            print(env_action)
             new_obs, rew, done, info = self.env.step(env_action) # NOUPDATE - env.step should take a vector of actions
             # print("Agent 1", type(new_obs[0]))
             # for row in new_obs[0]:
@@ -253,19 +250,10 @@ class MADQN(OffPolicyRLModel):
 
             self.num_timesteps += 1
 
-            # Stop training if return value is False
-            # if callback.on_step() is False:
-            #    break
-
             # Store transition in the replay buffer.
             # Loop for replay buffer -- either separate or joined. obs[agent_index], action[agent_index], reward[agent_index]
             # Joey: Does this look right to you?
-            # print(obs, action, rew, new_obs, done)
-            #print("obs",obs[0])
-            #print(action)
-            #print("ac", action[0])
-            #print("rew", rew[0])
-            #print("done", done[0])
+          
             for num_agent in range(self.num_agents):
                 self.replay_buffer.add(obs[num_agent], env_action[num_agent], rew[num_agent], new_obs[num_agent], float(done[num_agent]))
             obs = new_obs
