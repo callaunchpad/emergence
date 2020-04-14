@@ -91,7 +91,7 @@ class MAPPO2(ActorCriticRLModel):
         self._train = []
         self.loss_names = None
         self.num_agents = num_agents
-        self.train_model = []   #MA-MOD
+        self.train_model = []*num_agents   #MA-MOD
         self.act_model = []     #MA-MOD
         self.step = []          #MA-MOD
         self.proba_step = []    #MA-MOD
@@ -136,12 +136,12 @@ class MAPPO2(ActorCriticRLModel):
                                             n_batch_step, reuse=False, **self.policy_kwargs)
                     with tf.variable_scope("train_model_"+str(i), reuse=True,   #MA-MOD
                                         custom_getter=tf_util.outer_scope_getter("train_model")):
-                        train_model = self.policy(self.sess, self.observation_space, self.action_space,
+                        self.train_model[i]= self.policy(self.sess, self.observation_space, self.action_space,
                                                 self.n_envs // self.nminibatches, self.n_steps, n_batch_train,
                                                 reuse=True, **self.policy_kwargs)
 
                     with tf.variable_scope("loss_"+str(i), reuse=False):   #MA-MOD
-                        self.action_ph.append(train_model.pdtype.sample_placeholder([None], name="action_ph"))
+                        self.action_ph.append(self.train_model[i].pdtype.sample_placeholder([None], name="action_ph"))
                         self.advs_ph.append(tf.placeholder(tf.float32, [None], name="advs_ph"))
                         self.rewards_ph.append(tf.placeholder(tf.float32, [None], name="rewards_ph"))
                         self.old_neglog_pac_ph.append(tf.placeholder(tf.float32, [None], name="old_neglog_pac_ph"))
@@ -149,10 +149,10 @@ class MAPPO2(ActorCriticRLModel):
                         self.learning_rate_ph.append(tf.placeholder(tf.float32, [], name="learning_rate_ph"))
                         self.clip_range_ph.append(tf.placeholder(tf.float32, [], name="clip_range_ph"))
 
-                        neglogpac = train_model.proba_distribution.neglogp(self.action_ph[i])  #MA-MOD
-                        self.entropy.append(tf.reduce_mean(train_model.proba_distribution.entropy())) #MA-MOD
+                        neglogpac = self.train_model[i].proba_distribution.neglogp(self.action_ph[i])  #MA-MOD
+                        self.entropy.append(tf.reduce_mean(self.train_model[i].proba_distribution.entropy())) #MA-MOD
 
-                        vpred = train_model.value_flat
+                        vpred = self.train_model[i].value_flat
 
                         # Value function clipping: not present in the original PPO
                         if self.cliprange_vf is None:
@@ -170,12 +170,12 @@ class MAPPO2(ActorCriticRLModel):
 
                         if self.clip_range_vf_ph[i] is None:
                             # No clipping
-                            vpred_clipped = train_model.value_flat
+                            vpred_clipped = self.train_model[i].value_flat
                         else:
                             # Clip the different between old and new value
                             # NOTE: this depends on the reward scaling
                             vpred_clipped = self.old_vpred_ph[i] + \
-                                tf.clip_by_value(train_model.value_flat - self.old_vpred_ph[i],
+                                tf.clip_by_value(self.train_model[i].value_flat - self.old_vpred_ph[i],
                                                 - self.clip_range_vf_ph[i], self.clip_range_vf_ph[i])
 
 
@@ -214,7 +214,7 @@ class MAPPO2(ActorCriticRLModel):
 
                     self.loss_names = ['policy_loss', 'value_loss', 'policy_entropy', 'approxkl', 'clipfrac']
 
-                    with tf.variable_scope("input_info_"+str(i), reuse=False):  #MA-MOD
+                  #  with tf.variable_scope("input_info_"+str(i), reuse=False):  #MA-MOD
                         # tf.summary.scalar('discounted_rewards', tf.reduce_mean(self.rewards_ph))
                         # tf.summary.scalar('learning_rate', tf.reduce_mean(self.learning_rate_ph))
                         # tf.summary.scalar('advantage', tf.reduce_mean(self.advs_ph))
@@ -237,7 +237,7 @@ class MAPPO2(ActorCriticRLModel):
                         #     else:
                         #         tf.summary.histogram('observation', train_model.obs_ph)
 
-                    self.train_model.append(train_model)               #MA-MOD
+                   # self.train_model.append(train_model)               #MA-MOD
                     self.act_model.append(act_model)                   #MA-MOD
                     self.step.append(act_model.step)                   #MA-MOD
                     self.proba_step.append(act_model.proba_step)       #MA-MOD
@@ -356,7 +356,7 @@ class MAPPO2(ActorCriticRLModel):
                             mbinds = inds[start:end]
                             for agent_idx in range(self.num_agents): #MA-MOD
                                 slices = (arr[mbinds] for arr in (obs[agent_idx], returns[agent_idx], masks[agent_idx], actions[agent_idx], values[agent_idx], neglogpacs[agent_idx])) #MA-MOD
-                                mb_loss_vals[agent_idx].append(self._train_step(lr_now, cliprange_now, *slices, agent_idx, writer=writer, #MA-MOD
+                                mb_loss_vals[agent_idx].append(self._train_step(lr_now, cliprange_now, *slices, agent=agent_idx, writer=writer, #MA-MOD
                                                                 update=timestep, cliprange_vf=cliprange_vf_now))
                 else:  # recurrent version
                     update_fac = self.n_batch // self.nminibatches // self.noptepochs // self.n_steps + 1
@@ -375,7 +375,7 @@ class MAPPO2(ActorCriticRLModel):
                             for agent_idx in range(self.num_agents): #MA-MOD
                                 slices = (arr[mb_flat_inds] for arr in (obs[agent_idx], returns[agent_idx], masks[agent_idx], actions[agent_idx], values[agent_idx], neglogpacs[agent_idx])) #MA-MOD
                                 mb_states = states[mb_env_inds]
-                                mb_loss_vals[agent_idx].append(self._train_step(lr_now, cliprange_now, *slices, update=timestep, agent_idx #MA-MOD
+                                mb_loss_vals[agent_idx].append(self._train_step(lr_now, cliprange_now, *slices, update=timestep, agent=agent_idx, #MA-MOD
                                                                 writer=writer, states=mb_states,
                                                                 cliprange_vf=cliprange_vf_now))
                 loss_vals = [] #MA-MOD
@@ -477,7 +477,7 @@ class Runner(AbstractEnvRunner):
         mb_states = self.states
         ep_infos = []
         for _ in range(self.n_steps):
-            for agent_idx in range(model.num_agents):
+            for agent_idx in range(self.model.num_agents):
                 actions, values, self.states, neglogpacs = self.model.step[agent_idx](self.obs, self.states, self.dones)
                 mb_obs[agent_idx].append(self.obs.copy())
                 mb_actions[agent_idx].append(actions)
@@ -495,8 +495,8 @@ class Runner(AbstractEnvRunner):
                         ep_infos.append(maybe_ep_info)
                 mb_rewards[agent_idx].append(rewards)
         # batch of steps to batch of rollouts
-        last_values = [[]]*model.num_agents
-        for agent_idx in range(model.num_agents):
+        last_values = [[]]*self.model.num_agents
+        for agent_idx in range(self.model.num_agents):
             mb_obs[agent_idx] = np.asarray(mb_obs[agent_idx], dtype=self.obs.dtype)
             mb_rewards[agent_idx] = np.asarray(mb_rewards[agent_idx], dtype=np.float32)
             mb_actions[agent_idx] = np.asarray(mb_actions[agent_idx])
@@ -505,8 +505,8 @@ class Runner(AbstractEnvRunner):
             mb_dones[agent_idx] = np.asarray(mb_dones[agent_idx], dtype=np.bool)
             last_values[agent_idx] = self.model.value[agent_idx](self.obs, self.states, self.dones)
         # discount/bootstrap off value fn
-        mb_returns = []*model.num_agents
-        for agent_idx in range(model.num_agents):
+        mb_returns = []*self.model.num_agents
+        for agent_idx in range(self.model.num_agents):
             mb_advs = np.zeros_like(mb_rewards[agent_idx])
             true_reward = np.copy(mb_rewards[agent_idx])
             last_gae_lam = 0
