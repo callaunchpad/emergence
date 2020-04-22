@@ -64,10 +64,15 @@ class MADQN(OffPolicyRLModel):
                  _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False, seed=None,
                  num_agents=1): # MA-MOD
 
-        # TODO: replay_buffer refactoring
+
         super(MADQN, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
                                   requires_vec_env=False, policy_kwargs=policy_kwargs, seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
         # print("POLICY TYPE", policy)
+        # Need to add space correction for the observation space.
+        obs_sp_low = self.observation_space.low[0,:]
+        obs_sp_high = self.observation_space.high[0,:]
+        self.observation_space = gym.spaces.Box(low=obs_sp_low, high=obs_sp_high)
+
         self.param_noise = param_noise
         self.learning_starts = learning_starts
         self.train_freq = train_freq

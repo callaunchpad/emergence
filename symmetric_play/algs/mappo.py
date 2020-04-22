@@ -57,7 +57,7 @@ class MAPPO2(ActorCriticRLModel):
         super(MAPPO2, self).__init__(policy=policy, env=env, verbose=verbose, requires_vec_env=True,
                                    _init_setup_model=_init_setup_model, policy_kwargs=policy_kwargs,
                                    seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
-
+        
         self.learning_rate = learning_rate
         self.cliprange = cliprange
         self.cliprange_vf = cliprange_vf
@@ -436,7 +436,8 @@ class MAPPO2(ActorCriticRLModel):
             "n_cpu_tf_sess": self.n_cpu_tf_sess,
             "seed": self.seed,
             "_vectorize_action": self._vectorize_action,
-            "policy_kwargs": self.policy_kwargs
+            "policy_kwargs": self.policy_kwargs,
+            "num_agents": self.num_agents
         }
 
         params_to_save = self.get_parameters()
@@ -455,6 +456,7 @@ class Runner(AbstractEnvRunner):
         :param gamma: (float) Discount factor
         :param lam: (float) Factor for trade-off of bias vs variance for Generalized Advantage Estimator
         """
+        print("ENV TYPE", type(env))
         super().__init__(env=env, model=model, n_steps=n_steps)
         self.lam = lam
         self.gamma = gamma

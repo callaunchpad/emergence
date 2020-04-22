@@ -89,11 +89,11 @@ def train(params, model=None, env=None):
             env = Monitor(env, data_dir + '/' + str(i), allow_early_resets=params['early_reset'])
             return env
 
-        if 'PPO' in params['alg']:
-            env = DummyVecEnv([(lambda n: lambda: make_env(n))(i) for i in range(params['num_proc'])])
-        else:
-            env = make_env(0)
-
+        # if 'PPO' in params['alg']:
+        #     env = DummyVecEnv([(lambda n: lambda: make_env(n))(i) for i in range(params['num_proc'])])
+        # else:
+        #     env = make_env(0)
+        env = make_env(0)
 
         if params['normalize']:
             env = VecNormalize(env)
