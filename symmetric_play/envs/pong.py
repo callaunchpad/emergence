@@ -32,7 +32,7 @@ class Pong(gym.Env):
         self.info = {}
         self.done = np.array([False]*num_agents)
         self.action_space = spaces.Discrete(self.n_actions)
-        self.observation_space = spaces.Box(low = 0, high = 255, shape = (12,), dtype=np.uint8)
+        self.observation_space = spaces.Box(low = 0, high = 255, shape = (num_agents, 12), dtype=np.uint8)
 
     def generateObs(self, ballPos, paddle0Pos, paddle1Pos, ballVel, paddle0Vel, paddle1Vel):
         obs0 = np.array([ballPos, paddle0Pos, paddle1Pos, ballVel, paddle0Vel, paddle1Vel]).flatten()
