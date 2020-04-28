@@ -51,8 +51,8 @@ class RGBifier:
             return (255, 0, 0)
         else:
             # Get player ID
-            pid = (state - 100) // 2
-            is_head = (state - 100) % 2
+            pid = (state) // 2
+            is_head = (state) % 2
             # Checking that default color exists
             if pid not in self.pcolors.keys():
                 pid = 0
@@ -154,8 +154,8 @@ class World:
 
     def __init__(self, size, n_sneks=1, n_food=1, add_walls=False):
         self.DEAD_REWARD = -1.0
-        self.MOVE_REWARD = 0.0
-        self.EAT_REWARD = 1.0
+        self.MOVE_REWARD = 0.1
+        self.EAT_REWARD = 5.0
         self.FOOD = 64
         self.WALL = 255
         self.DIRECTIONS = Snek.DIRECTIONS
@@ -185,7 +185,7 @@ class World:
         p = (random.randint(SNEK_SIZE, self.size[0]-SNEK_SIZE), random.randint(SNEK_SIZE, self.size[1]-SNEK_SIZE))
         start_direction_index = random.randrange(len(Snek.DIRECTIONS))
         # Create snek and append
-        new_snek = Snek(100 + 2*len(self.sneks), p, start_direction_index, SNEK_SIZE)
+        new_snek = Snek(100 + 2*len(self.sneks), p, start_direction_index, SNEK_SIZE) # 100 +
         self.sneks.append(new_snek)
         return new_snek
 
@@ -245,7 +245,7 @@ class World:
             # Check if snek eats something
             if snek.alive and self.world[new_snek_head[0], new_snek_head[1]] == self.FOOD:
                 # Remove old food
-                self.world[new_snek_head[0], new_snek_head[1]] = 0
+                self.world[new_snek_head[0], new_snek_head[1]] = -1
                 # Add tail again
                 snek.my_blocks.append(old_snek_tail)
                 # Request to place new food. New food creation cannot be called here directly, need to update all sneks before
@@ -281,7 +281,7 @@ class MultiSneks(gym.Env):
         'observation.types': ['raw', 'rgb', 'layered']
     }
 
-    def __init__(self, size=(16,16), num_agents=2, step_limit=1000, dynamic_step_limit=1000, obs_type='raw', obs_zoom=1, n_food=1, render_zoom=20, add_walls=False):
+    def __init__(self, size=(12,12), num_agents=2, step_limit=1000, dynamic_step_limit=1000, obs_type='raw', obs_zoom=1, n_food=1, render_zoom=20, add_walls=False):
         # Set size of the game world
         self.SIZE = size
         self.N_SNEKS = num_agents
@@ -364,7 +364,7 @@ class MultiSneks(gym.Env):
             s = np.transpose(s, [1, 2, 0])
             return s
         else:
-            return self.convert(_state)
+            return np.array([_state, _state])
 
     # def get_multi_state(self):
     #     _state = self.world.get_observation()
@@ -376,25 +376,39 @@ class MultiSneks(gym.Env):
     #         return s
     #     else:
     #         return self.convert(_state)
+    def simplify(self, state, id):
+        copy = state.copy()
+        for i in range(len(state)):
+            for j in range(len(state[i])):
+                if state[i][j] == 64:
+                    copy[i][j] = -10
+                elif state[i][j] == id:
+                    copy[i][j] = 10
+                elif state[i][j] >= 100:
+                    copy[i][j] = 1
+                else:
+                    copy[i][j] = 0
+        return copy
     
     def convert(self, state):
         allsneks = []
         #allsneks.append(state)
         state = self.world.get_observation()
-        allsneks.append(state)
+        allsneks.append(self.simplify(state, self.world.sneks[0]))
         for i in range(1, self.N_SNEKS):
             temp_2d = []
             for row in state:
                 temp_row = []
                 for col in row:
-                    if col >= 100:
-                        col -= (100 + 2 * i)
+                    if col >= 100: # 100
+                        col -= (100 + 2 * i) # 100 +
                         col %= (self.N_SNEKS * 2) 
                         col += 100 
                     temp_row.append(col)
                 temp_2d.append(temp_row)
-            allsneks.append(temp_2d)
-        return allsneks
+            allsneks.append(np.array(self.simplify(temp_2d, self.world.sneks[i])))
+        return np.array(allsneks)
+
 
     def render(self, mode='human', close=False):
         if not close:
@@ -408,16 +422,17 @@ class MultiSneks(gym.Env):
             self.renderer.close()
             self.renderer = None
 
-import time
+# import time
 
-if __name__ == "__main__":
-    env = MultiSneks()
-    obs = env.reset()
-    for i in range(1000):
-        time.sleep(1)
-        env.render(mode='human')
-        action = env.action_space.sample()
-        obs, reward, done, _ = env.step([action])
-        print(env.convert(env._get_state))
-        if done:
-            obs = env.reset()
+# if __name__ == "__main__":
+#     env = MultiSneks()
+#     obs = env.reset()
+#     for i in range(1000):
+#         time.sleep(1)
+#         env.render(mode='human')
+#         action = env.action_space.sample()
+#         obs, reward, done, _ = env.step([action])
+#         print("Reward: ", reward)
+#         print(env._get_state())
+#         if done:
+#             obs = env.reset()
