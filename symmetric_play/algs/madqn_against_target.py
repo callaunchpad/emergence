@@ -8,7 +8,7 @@ from stable_baselines import logger
 from stable_baselines.common import tf_util, OffPolicyRLModel, SetVerbosity
 from stable_baselines.common.vec_env import VecEnv
 from stable_baselines.common.schedules import LinearSchedule
-from .deepq.build_graph import build_train
+from .deepq.build_graph import build_train_against_target
 from stable_baselines.deepq.replay_buffer import ReplayBuffer, PrioritizedReplayBuffer
 from stable_baselines.deepq.policies import DQNPolicy
 
@@ -64,10 +64,11 @@ class MADQN(OffPolicyRLModel):
                  _init_setup_model=True, policy_kwargs=None, full_tensorboard_log=False, seed=None,
                  num_agents=1): # MA-MOD
 
-        # TODO: replay_buffer refactoring
+
         super(MADQN, self).__init__(policy=policy, env=env, replay_buffer=None, verbose=verbose, policy_base=DQNPolicy,
                                   requires_vec_env=False, policy_kwargs=policy_kwargs, seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
         # print("POLICY TYPE", policy)
+        # Need to add space correction for the observation space.
         obs_sp_low = self.observation_space.low[0,:]
         obs_sp_high = self.observation_space.high[0,:]
         self.observation_space = gym.spaces.Box(low=obs_sp_low, high=obs_sp_high)
@@ -98,13 +99,10 @@ class MADQN(OffPolicyRLModel):
         self._train_step = [] # MA-MOD
         self.step_model = [] # MA-MOD
         self.update_target = [] # MA-MOD
-                                # OK I'm reverting all this, I just can't figure out how to train against the target.
-                                # 1. Having a hard time breaking the abstraction barrier and getting access to the target network
-                                # 2. Can't figure out where to put the target network in the training and how it dovetails with everything else
         self.act = [] # MA-MOD
         self.proba_step = [] # MA-MOD
-        self.replay_buffer = None # TODO: Possibly try seperate replay buffer. If everything symmetric, OK for one.
-                                    # If you have the same Value function, its fine. If you have seperate functions, if you have one replay buffer, they learn from the same data.
+        self.target_policy = None # MA-MOD: to store target Q network (only makes sense if self.num_agents == 1)
+        self.replay_buffer = None
         self.beta_schedule = None
         self.exploration = None
         self.params = None
@@ -145,7 +143,7 @@ class MADQN(OffPolicyRLModel):
                 for i in range(self.num_agents):
                     with tf.variable_scope("agent"+str(i)):
                         optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
-                        act, _train_step, update_target, step_model = build_train(
+                        act, _train_step, update_target, step_model, target_policy = build_train_against_target(
                             q_func=partial(self.policy, **self.policy_kwargs),
                             ob_space=self.observation_space,
                             ac_space=self.action_space,
@@ -162,17 +160,24 @@ class MADQN(OffPolicyRLModel):
                         self.step_model.append(step_model)
                         self.proba_step.append(step_model.proba_step)
                         self.update_target.append(update_target)
+                        self.target_policy = target_policy
                         self.params.extend(tf_util.get_trainable_vars("agent"+str(i) + "/deepq"))
 
 
-                print(self.params)
-
                 # Initialize the parameters and copy them to the target network.
-                tf_util.initialize(self.sess) # TODO: copy this file, make two versions of the algorithm.
+                tf_util.initialize(self.sess)
                 for i in range(self.num_agents):
-                    self.update_target[i](sess=self.sess) # TODO: Not sure, seems like the best thing to do is try using each agents own target first.
+                    self.update_target[i](sess=self.sess)
 
                 # self.summary = tf.summary.merge_all()
+
+    def evaluate_target_for_observation(observation):
+        target_policy, double_policy = self.target_policy
+        """
+        q_tp1_best_using_online_net = tf.argmax(double_q_values, axis=1)
+        q_tp1_best = tf.reduce_sum(target_policy.q_values * tf.one_hot(q_tp1_best_using_online_net, n_actions), axis=1)
+        """
+        return None # TODO
 
     def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name="DQN",
               reset_num_timesteps=True, replay_wrapper=None):
@@ -239,10 +244,20 @@ class MADQN(OffPolicyRLModel):
             with self.sess.as_default():
                 env_action = [] # MA-MOD
                 for i in range(self.num_agents): # MA-MOD. This is fine for one policy.
-                    action = self.act[i](np.array(obs[i])[None], update_eps=update_eps, **kwargs)[0] # TODO: Is this the correct way to get the correct agent obs?
+                    if i + 1 == self.num_agents:
+                        action = self.evaluate_target_for_observation(observation)
+                    else:
+                        action = self.act[i](np.array(obs[i])[None], update_eps=update_eps, **kwargs)[0]
                     env_action.append(action)
             reset = False
             new_obs, rew, done, info = self.env.step(env_action) # NOUPDATE - env.step should take a vector of actions
+            # print("Agent 1", type(new_obs[0]))
+            # for row in new_obs[0]:
+            #     print(' '.join(str(int(item)) for item in row))
+
+            # print("Agent 2", type(new_obs[1]))
+            # for row in new_obs[1]:
+            #     print(' '.join(str(int(item)) for item in row))
 
             '''
             Obs: x_me, x_opp --- agent 1. In env: x_1, x_2
@@ -252,19 +267,10 @@ class MADQN(OffPolicyRLModel):
 
             self.num_timesteps += 1
 
-            # Stop training if return value is False
-            # if callback.on_step() is False:
-            #    break
-
             # Store transition in the replay buffer.
             # Loop for replay buffer -- either separate or joined. obs[agent_index], action[agent_index], reward[agent_index]
             # Joey: Does this look right to you?
-            # print(obs, action, rew, new_obs, done)
-            #print("obs",obs[0])
-            #print(action)
-            #print("ac", action[0])
-            #print("rew", rew[0])
-            #print("done", done[0])
+          
             for num_agent in range(self.num_agents):
                 self.replay_buffer.add(obs[num_agent], env_action[num_agent], rew[num_agent], new_obs[num_agent], float(done[num_agent]))
             obs = new_obs
@@ -274,19 +280,18 @@ class MADQN(OffPolicyRLModel):
             #     ep_done = np.array([done]).reshape((1, -1))
             #     tf_util.total_episode_reward_logger(self.episode_reward, ep_rew, ep_done, writer,
             #                                         self.num_timesteps)
-
-            # TODO: current episode_rewards is a list, make it a list of lists where each list is the reward for each agent in all timesteps
-            #     append the newest reward to the end of each list for each agent
-            for num_agent in range(self.num_agents): #MA-MOD
-                episode_rewards[-1][num_agent] += rew[num_agent]
-                if done.any():
-                    maybe_is_success = info.get('is_success')
-                    if maybe_is_success is not None:
-                        episode_successes.append(float(maybe_is_success))
-                    if not isinstance(self.env, VecEnv):
-                        obs = self.env.reset()
-                    episode_rewards.append([0.0] * self.num_agents)
-                    reset = True
+            if isinstance(done, list):
+                done = np.array(done)
+            if done.any():
+                for num_agent in range(self.num_agents): #MA-MOD
+                    episode_rewards[-1][num_agent] += rew[num_agent]
+                maybe_is_success = info.get('is_success')
+                if maybe_is_success is not None:
+                    episode_successes.append(float(maybe_is_success))
+                if not isinstance(self.env, VecEnv):
+                    obs = self.env.reset()
+                episode_rewards.append([0.0] * self.num_agents)
+                reset = True
 
             # Do not train if the warmup phase is not over
             # or if there are not enough samples in the replay buffer
@@ -339,12 +344,13 @@ class MADQN(OffPolicyRLModel):
                     self.num_timesteps % self.target_network_update_freq == 0:
                 # Update target network periodically.
                 for i in range(self.num_agents):
-                    self.update_target[i](sess=self.sess) # MA-MOD
+                    if i + 1 < self.num_agents:
+                        self.update_target[i](sess=self.sess) # MA-MOD
 
             if len(episode_rewards[-101:-1]) == 0: # MA-MOD
-                mean_100ep_reward = -np.inf
+                mean_100ep_reward = -np.inf * np.ones((self.num_agents,))
             else:
-                mean_100ep_reward = round(float(np.mean(episode_rewards[-101:-1])), 1) #MA-MOD
+                mean_100ep_reward = np.mean(episode_rewards[-101:-1], axis=0)
 
             # below is what's logged in terminal.
             num_episodes = len(episode_rewards) #MA-MOD
@@ -352,7 +358,7 @@ class MADQN(OffPolicyRLModel):
                 logger.record_tabular("steps", self.num_timesteps)
                 logger.record_tabular("episodes", num_episodes)
                 if len(episode_successes) > 0:
-                    logger.logkv("success rate", np.mean(episode_successes[-100:]))
+                    logger.logkv("success rate", np.mean(episode_successes[-100:], axis=0))
                 logger.record_tabular("mean 100 episode reward", mean_100ep_reward)
                 logger.record_tabular("% time spent exploring",
                                         int(100 * self.exploration.value(self.num_timesteps)))
@@ -360,18 +366,24 @@ class MADQN(OffPolicyRLModel):
 
         return self
 
-    def predict(self, observation, agent_idx, state=None, mask=None, deterministic=True): # MA-MOD - added `agent_idx` as a parameter
+    def predict(self, observation, state=None, mask=None, deterministic=True): # MA-MOD - added `agent_idx` as a parameter
         observation = np.array(observation)
         vectorized_env = self._is_vectorized_observation(observation, self.observation_space)
 
         observation = observation.reshape((-1,) + self.observation_space.shape)
+        action = list()
         with self.sess.as_default():
-            actions, _, _ = self.step_model[agent_idx].step(observation, deterministic=deterministic)
-
+            for agent_idx in range(self.num_agents):
+                if agent_idx + 1 == self.num_agents:
+                    ac_step = self.evaluate_target_for_observation(observation)
+                else:
+                    ac_step = self.act[agent_idx](observation)[0]
+                # agent_ac, _, _ = self.step_model[agent_idx].step(observation, deterministic=deterministic)
+                # print("Agent Action", agent_idx, agent_ac, ac_step)
+                action.append(ac_step)
         if not vectorized_env:
-            actions = actions[0]
-
-        return actions, None
+            action = [ac[0] for ac in action]
+        return action, None
 
 
     # No one ever calls this, so we don't need it?
