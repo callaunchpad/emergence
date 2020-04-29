@@ -524,6 +524,11 @@ def build_train_against_target(q_func, ob_space, ac_space, optimizer, sess, grad
         target_q_func_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
                                                scope=tf.get_variable_scope().name + "/target_q_func")
 
+        target_policy_evaluator = tf_util.function(
+            inputs=[target_policy.obs_ph],
+            outputs=[tf.argmax(target_policy.q_values, axis=1)]
+        )
+
         # compute estimate of best possible value starting from state at t + 1
         double_q_values = None
         double_obs_ph = target_policy.obs_ph
@@ -611,4 +616,4 @@ def build_train_against_target(q_func, ob_space, ac_space, optimizer, sess, grad
     )
     update_target = tf_util.function([], [], updates=[update_target_expr])
 
-    return act_f, train, update_target, step_model, target_policy
+    return act_f, train, update_target, step_model, target_policy_evaluator

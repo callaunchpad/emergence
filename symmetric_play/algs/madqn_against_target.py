@@ -69,9 +69,10 @@ class MADQN(OffPolicyRLModel):
                                   requires_vec_env=False, policy_kwargs=policy_kwargs, seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
         # print("POLICY TYPE", policy)
         # Need to add space correction for the observation space.
-        obs_sp_low = self.observation_space.low[0,:]
-        obs_sp_high = self.observation_space.high[0,:]
-        self.observation_space = gym.spaces.Box(low=obs_sp_low, high=obs_sp_high)
+        if self.observation_space:
+            obs_sp_low = self.observation_space.low[0,:]
+            obs_sp_high = self.observation_space.high[0,:]
+            self.observation_space = gym.spaces.Box(low=obs_sp_low, high=obs_sp_high)
 
         self.param_noise = param_noise
         self.learning_starts = learning_starts
@@ -171,15 +172,6 @@ class MADQN(OffPolicyRLModel):
 
                 # self.summary = tf.summary.merge_all()
 
-    def evaluate_target_for_observation(self, observation, **kwargs):
-        return self.target_policy(observation, **kwargs)[0]
-        # target_policy, double_policy = self.target_policy
-        """
-        q_tp1_best_using_online_net = tf.argmax(double_q_values, axis=1)
-        q_tp1_best = tf.reduce_sum(target_policy.q_values * tf.one_hot(q_tp1_best_using_online_net, n_actions), axis=1)
-        """
-        # return None # TODO
-
     def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name="DQN",
               reset_num_timesteps=True, replay_wrapper=None):
 
@@ -247,7 +239,7 @@ class MADQN(OffPolicyRLModel):
                 kwargs["update_eps"] = update_eps
                 for i in range(self.num_agents): # MA-MOD. This is fine for one policy.
                     if i + 1 == self.num_agents:
-                        action = self.evaluate_target_for_observation(np.array(obs[i])[None], **kwargs)
+                        action = self.target_policy(np.array(obs[i])[None], **kwargs)[0][0]
                     else:
                         action = self.act[i](np.array(obs[i])[None], **kwargs)[0]
                     env_action.append(action)
@@ -376,10 +368,12 @@ class MADQN(OffPolicyRLModel):
         action = list()
         with self.sess.as_default():
             for agent_idx in range(self.num_agents):
+                cur_obs = np.array(observation[agent_idx])[None]
                 if agent_idx + 1 == self.num_agents:
-                    ac_step = self.evaluate_target_for_observation(observation)
+                    ac_step = self.target_policy(cur_obs)[0][0]
                 else:
-                    ac_step = self.act[agent_idx](observation)[0]
+                    ac_step = self.act[agent_idx](cur_obs)[0]
+                # print(f"Agent #{agent_idx + 1} returned:", ac_step)
                 # agent_ac, _, _ = self.step_model[agent_idx].step(observation, deterministic=deterministic)
                 # print("Agent Action", agent_idx, agent_ac, ac_step)
                 action.append(ac_step)
