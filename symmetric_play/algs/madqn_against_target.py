@@ -172,12 +172,13 @@ class MADQN(OffPolicyRLModel):
                 # self.summary = tf.summary.merge_all()
 
     def evaluate_target_for_observation(observation):
-        target_policy, double_policy = self.target_policy
+        return self.target_policy(observation)[0]
+        # target_policy, double_policy = self.target_policy
         """
         q_tp1_best_using_online_net = tf.argmax(double_q_values, axis=1)
         q_tp1_best = tf.reduce_sum(target_policy.q_values * tf.one_hot(q_tp1_best_using_online_net, n_actions), axis=1)
         """
-        return None # TODO
+        # return None # TODO
 
     def learn(self, total_timesteps, callback=None, log_interval=100, tb_log_name="DQN",
               reset_num_timesteps=True, replay_wrapper=None):

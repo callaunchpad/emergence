@@ -611,4 +611,4 @@ def build_train_against_target(q_func, ob_space, ac_space, optimizer, sess, grad
     )
     update_target = tf_util.function([], [], updates=[update_target_expr])
 
-    return act_f, train, update_target, step_model, (target_policy, double_policy)
+    return act_f, train, update_target, step_model, target_policy
