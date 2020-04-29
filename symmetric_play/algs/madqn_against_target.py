@@ -171,8 +171,8 @@ class MADQN(OffPolicyRLModel):
 
                 # self.summary = tf.summary.merge_all()
 
-    def evaluate_target_for_observation(observation):
-        return self.target_policy(observation)[0]
+    def evaluate_target_for_observation(self, observation, **kwargs):
+        return self.target_policy(observation, **kwargs)[0]
         # target_policy, double_policy = self.target_policy
         """
         q_tp1_best_using_online_net = tf.argmax(double_q_values, axis=1)
@@ -244,11 +244,12 @@ class MADQN(OffPolicyRLModel):
 
             with self.sess.as_default():
                 env_action = [] # MA-MOD
+                kwargs["update_eps"] = update_eps
                 for i in range(self.num_agents): # MA-MOD. This is fine for one policy.
                     if i + 1 == self.num_agents:
-                        action = self.evaluate_target_for_observation(observation)
+                        action = self.evaluate_target_for_observation(np.array(obs[i])[None], **kwargs)
                     else:
-                        action = self.act[i](np.array(obs[i])[None], update_eps=update_eps, **kwargs)[0]
+                        action = self.act[i](np.array(obs[i])[None], **kwargs)[0]
                     env_action.append(action)
             reset = False
             new_obs, rew, done, info = self.env.step(env_action) # NOUPDATE - env.step should take a vector of actions
