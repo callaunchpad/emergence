@@ -476,27 +476,34 @@ class Runner(AbstractEnvRunner):
             - infos: (dict) the extra information of the model
         """
         # mb stands for minibatch
-        mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [[]]*model.num_agents, [[]]*model.num_agents, [[]]*model.num_agents, [[]]*model.num_agents, [[]]*model.num_agents, [[]]*model.num_agents #MA-MOD
+        mb_obs, mb_rewards, mb_actions, mb_values, mb_dones, mb_neglogpacs = [[]]*self.model.num_agents, [[]]*self.model.num_agents, [[]]*self.model.num_agents, [[]]*self.model.num_agents, [[]]*self.model.num_agents, [[]]*self.model.num_agents #MA-MOD
         mb_states = self.states
         ep_infos = []
+        env_actions = []
         for _ in range(self.n_steps):
             for agent_idx in range(self.model.num_agents):
                 actions, values, self.states, neglogpacs = self.model.step[agent_idx](self.obs, self.states, self.dones)
                 mb_obs[agent_idx].append(self.obs.copy())
                 mb_actions[agent_idx].append(actions)
-                mb_values[agent_idx].append(values)
+                mb_values[agent_idx].append(values[0])
                 mb_neglogpacs[agent_idx].append(neglogpacs)
-                mb_dones[agent_idx].append(self.dones)
+                if _ == 0:
+                    mb_dones[agent_idx].append(self.dones[0])
+                else:
+                    mb_dones[agent_idx].append(self.dones[0][0])
                 clipped_actions = actions
                 # Clip the actions to avoid out of bound error
                 if isinstance(self.env.action_space, gym.spaces.Box):
                     clipped_actions = np.clip(actions, self.env.action_space.low, self.env.action_space.high)
-                self.obs[:], rewards, self.dones, infos = self.env.step(clipped_actions)
-                for info in infos:
-                    maybe_ep_info = info.get('episode')
-                    if maybe_ep_info is not None:
-                        ep_infos.append(maybe_ep_info)
-                mb_rewards[agent_idx].append(rewards)
+                env_actions.append(clipped_actions)
+            #print("ENV_ACTIONS:", env_actions)
+            self.obs[:], rewards, self.dones, infos = self.env.step([env_actions])
+            for info in infos:
+                maybe_ep_info = info.get('episode')
+                if maybe_ep_info is not None:
+                    ep_infos.append(maybe_ep_info)
+            for agent_idx in range(self.model.num_agents): 
+                mb_rewards[agent_idx].append(rewards[0][agent_idx])
         # batch of steps to batch of rollouts
         last_values = [[]]*self.model.num_agents
         for agent_idx in range(self.model.num_agents):
@@ -508,24 +515,43 @@ class Runner(AbstractEnvRunner):
             mb_dones[agent_idx] = np.asarray(mb_dones[agent_idx], dtype=np.bool)
             last_values[agent_idx] = self.model.value[agent_idx](self.obs, self.states, self.dones)
         # discount/bootstrap off value fn
-        mb_returns = []*self.model.num_agents
+        mb_returns = []
         for agent_idx in range(self.model.num_agents):
             mb_advs = np.zeros_like(mb_rewards[agent_idx])
             true_reward = np.copy(mb_rewards[agent_idx])
             last_gae_lam = 0
             for step in reversed(range(self.n_steps)):
                 if step == self.n_steps - 1:
-                    nextnonterminal = 1.0 - self.dones
+                    nextnonterminal = 1.0 - self.dones[0][0]
                     nextvalues = last_values[agent_idx]
                 else:
                     nextnonterminal = 1.0 - mb_dones[agent_idx][step + 1]
                     nextvalues = mb_values[agent_idx][step + 1]
+                # print(mb_rewards[agent_idx][step])
+                # print(self.gamma)
+                # print(nextvalues)
+                # print(nextnonterminal)
+                # print(mb_values[agent_idx][step])
                 delta = mb_rewards[agent_idx][step] + self.gamma * nextvalues * nextnonterminal - mb_values[agent_idx][step]
+                # print(delta)
+                # print(self.gamma)
+                # print(self.lam)
+                # print(nextnonterminal)
+                # print(last_gae_lam)
                 mb_advs[step] = last_gae_lam = delta + self.gamma * self.lam * nextnonterminal * last_gae_lam
             mb_returns.append(mb_advs + mb_values[agent_idx])
 
-            mb_obs[agent_idx], mb_returns[agent_idx], mb_dones, mb_actions, mb_values, mb_neglogpacs, true_reward = \
-                map(swap_and_flatten, (mb_obs[agent_idx], mb_returns[agent_idx], mb_dones[agent_idx], mb_actions[agent_idx], mb_values[agent_idx], mb_neglogpacs[agent_idx], true_reward))
+            print("MB:", mb_returns)
+            mb_obs[agent_idx] = swap_and_flatten(mb_obs[agent_idx])
+            mb_returns[agent_idx] = swap_and_flatten(mb_returns[agent_idx])
+            mb_dones[agent_idx] = swap_and_flatten(mb_dones[agent_idx])
+            mb_actions[agent_idx] = swap_and_flatten(mb_actions[agent_idx])
+            mb_values[agent_idx] = swap_and_flatten(mb_values[agent_idx])
+            mb_neglogpacs[agent_idx] = swap_and_flatten(mb_neglogpacs[agent_idx])
+            true_reward[agent_idx] = swap_and_flatten(true_reward[agent_idx])
+
+            mb_obs[agent_idx], mb_returns[agent_idx], mb_dones[agent_idx], mb_actions[agent_idx], mb_values[agent_idx], mb_neglogpacs[agent_idx], true_reward[agent_idx] = \
+                map(swap_and_flatten, (mb_obs[agent_idx], mb_returns[agent_idx], mb_dones[agent_idx], mb_actions[agent_idx], mb_values[agent_idx], mb_neglogpacs[agent_idx], true_reward[agent_idx]))
 
         return mb_obs, mb_returns, mb_dones, mb_actions, mb_values, mb_neglogpacs, mb_states, ep_infos, true_reward
 
