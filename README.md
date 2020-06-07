@@ -54,4 +54,7 @@ tensorboard --logdir ./tb_logs/REST_OF_PATH
 
 ## Contributors
 * Joey Hejna
-* *other team members go here*
+* Sean Kim
+* Reina Wang
+* Nareg Megan
+* Sumer Kohli
