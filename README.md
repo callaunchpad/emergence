@@ -1,6 +1,8 @@
-# symmetric_play
+# Emergence
 
 Framework for running symmetric play experiments. 
+
+Framework code taken from [here](https://github.com/jhejna/hierarchical_morphology_transfer)
 
 ## Setup
 This repo has been tested with Ubuntu 19 and python 3.7.5. Other linux based systems and python versions >3.5 should function fine. Windows users should use the linux subsystem. 
